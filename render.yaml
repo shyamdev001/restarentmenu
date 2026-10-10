@@ -5,7 +5,8 @@ services:
     name: saffron-menu
     runtime: node
     plan: free
-    buildCommand: npm run install:all && npm run build
+    # The build script installs the server's and the client's packages itself.
+    buildCommand: npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:

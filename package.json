@@ -4,9 +4,9 @@
   "private": true,
   "description": "Digital restaurant menu: customer ordering app and admin panel (MERN).",
   "scripts": {
-    "install:all": "npm install && npm install --prefix server && npm install --prefix client",
+    "install:all": "npm install --no-audit --no-fund && npm install --prefix server --no-audit --no-fund && npm install --prefix client --include=dev --no-audit --no-fund",
     "dev": "concurrently -n server,client -c yellow,cyan \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
-    "build": "npm run build --prefix client",
+    "build": "npm install --prefix server --no-audit --no-fund && npm install --prefix client --include=dev --no-audit --no-fund && npm run build --prefix client",
     "start": "npm run start --prefix server",
     "seed": "npm run seed --prefix server"
   },
