@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api.js';
-import { money } from '../../lib/format.js';
+import { TZ, money } from '../../lib/format.js';
+
+const zone = '?tz=' + encodeURIComponent(TZ);
 
 const dayName = (day) => new Date(day + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 const clock = (date) => new Date(date).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
@@ -13,13 +15,13 @@ export default function HistoryPage({ settings, setError }) {
   const currency = settings.currency;
 
   useEffect(() => {
-    api.get('/admin/history').then((list) => { setDays(list); setDay((d) => d || list[0]?.day || ''); }).catch((e) => setError(e.message));
+    api.get('/admin/history' + zone).then((list) => { setDays(list); setDay((d) => d || list[0]?.day || ''); }).catch((e) => setError(e.message));
   }, [setError]);
 
   useEffect(() => {
     if (!day) return;
     setOrders(null);
-    api.get('/admin/history/' + day).then(setOrders).catch((e) => setError(e.message));
+    api.get('/admin/history/' + day + zone).then(setOrders).catch((e) => setError(e.message));
   }, [day, setError]);
 
   const picked = days?.find((d) => d.day === day);

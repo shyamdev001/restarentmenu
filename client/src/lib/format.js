@@ -1,6 +1,9 @@
 export const money = (amount, currency = '₹') =>
   currency + Number(amount || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
 
+/** This device's time zone, sent with report requests so days and hours are the restaurant's own. */
+export const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
 export const pad2 = (n) => String(n).padStart(2, '0');
 
 export const fullName = (dish) => `${dish.name} ${dish.accent || ''}`.trim();

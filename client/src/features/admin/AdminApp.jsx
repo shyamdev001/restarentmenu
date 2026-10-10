@@ -14,9 +14,10 @@ import CategoryManager from './CategoryManager.jsx';
 import TablesQr from './TablesQr.jsx';
 import SettingsPage from './SettingsPage.jsx';
 import HistoryPage from './HistoryPage.jsx';
+import ReportsPage from './ReportsPage.jsx';
 import '../../styles/admin.css';
 
-const TABS = [['orders', 'Orders'], ['history', 'History'], ['menu', 'Menu'], ['categories', 'Categories'], ['tables', 'Tables & QR'], ['settings', 'Settings']];
+const TABS = [['orders', 'Orders'], ['history', 'History'], ['reports', 'Reports'], ['menu', 'Menu'], ['categories', 'Categories'], ['tables', 'Tables & QR'], ['settings', 'Settings']];
 
 const REMIND_MS = 60000; // while something is waiting, a quiet reminder this often
 
@@ -146,6 +147,7 @@ function Panel({ user, onLogout }) {
         {data.error && <p className="a-error" role="alert">{data.error} <button className="a-btn" onClick={() => data.setError('')}>Dismiss</button></p>}
         {tab === 'orders' && <OrdersBoard {...data} />}
         {tab === 'history' && <HistoryPage settings={data.settings} setError={data.setError} />}
+        {tab === 'reports' && <ReportsPage settings={data.settings} setError={data.setError} />}
         {tab === 'menu' && <MenuManager {...data} />}
         {tab === 'categories' && <CategoryManager {...data} />}
         {tab === 'tables' && <TablesQr settings={data.settings} />}

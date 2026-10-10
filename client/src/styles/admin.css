@@ -344,3 +344,48 @@ p.a-error { padding: 12px 16px; border-radius: 12px; border: 1px solid rgb(var(-
 
 .a-soundhint { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 12px; border: 1px dashed var(--hair); color: var(--accent); font-size: 14px; font-weight: 600; }
 .a-qr a { color: #5c5046; text-decoration: underline; text-underline-offset: 2px; }
+
+/* ----------------------------------- Reports ---------------------------------- */
+.a-range { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px; }
+.a-range__presets { display: flex; flex-wrap: wrap; gap: 8px; margin-right: auto; }
+.a-range .a-label { flex: 0 1 170px; }
+.a-chipbtn { min-height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid var(--rule); background: transparent; color: var(--text); font-size: 14px; font-weight: 600; transition: border-color 0.25s ease, background 0.25s ease; }
+.a-chipbtn.is-on { background: var(--satin); border-color: transparent; color: var(--dark); }
+@media (hover: hover) { .a-chipbtn:hover:not(.is-on) { border-color: var(--gold); } }
+
+.a-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(14px, 2vw, 22px); align-items: start; }
+.a-charts > :only-child { grid-column: 1 / -1; }
+.a-stack { display: flex; flex-direction: column; gap: clamp(14px, 2vw, 22px); min-width: 0; }
+.a-chart header { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.a-chart__read { min-height: 1.5em; font-size: 13.5px; line-height: 1.5; color: var(--muted); }
+.a-chart__none { padding: 28px 0; text-align: center; color: var(--muted); font-family: var(--serif); font-style: italic; }
+
+/* One series, one colour: the bars differ only in size. */
+.a-bars { position: relative; }
+.a-bars__max { display: block; margin-bottom: 6px; font-size: 11.5px; color: var(--muted); }
+.a-bars__plot { display: flex; align-items: flex-end; gap: 2px; height: 170px; border-top: 1px dashed var(--line); border-bottom: 1px solid var(--rule); }
+.a-bar { flex: 1 1 0; min-width: 0; height: 100%; padding: 0; border: 0; background: none; display: flex; align-items: flex-end; cursor: default; }
+.a-bar i { display: block; width: 100%; border-radius: 4px 4px 0 0; background: var(--gold); opacity: 0.78; transition: opacity 0.2s ease; }
+.a-bar.is-at i { opacity: 1; }
+.a-bar.is-at { background: rgb(var(--fg) / 0.05); }
+.a-bar:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.a-bars__axis { display: flex; gap: 2px; margin-top: 8px; }
+.a-bars__axis span { flex: 1 1 0; min-width: 0; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: visible; }
+
+.a-rank { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.a-rank li { display: flex; gap: 14px; }
+.a-rank__n { flex: none; width: 22px; font-family: var(--serif); font-size: 18px; line-height: 1.25; color: var(--muted); font-variant-numeric: lining-nums; }
+.a-rank__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+.a-rank__row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.a-rank__row > span { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.a-rank__row b { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.a-rank__row small { font-size: 12.5px; color: var(--muted); }
+.a-rank__fig { flex: none; text-align: right; align-items: flex-end; }
+.a-rank__fig b { font-family: var(--serif); font-weight: 500; font-size: 18px; font-variant-numeric: lining-nums; }
+.a-rank__bar { display: block; height: 6px; border-radius: 3px; background: rgb(var(--fg) / 0.07); }
+.a-rank__bar i { display: block; height: 100%; border-radius: 3px; background: var(--gold); }
+.a-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.a-chip { min-height: 32px; padding: 0 12px; border-radius: 16px; border: 1px solid var(--rule); display: inline-flex; align-items: center; font-size: 13px; }
+
+@media (max-width: 860px) { .a-charts { grid-template-columns: 1fr; } .a-bars__plot { height: 140px; } }
+@media (max-width: 560px) { .a-range .a-label { flex: 1 1 140px; } .a-range__presets { width: 100%; } }

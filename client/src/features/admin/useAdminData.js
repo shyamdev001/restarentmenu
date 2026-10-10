@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../lib/api.js';
 import { closeSocket, resetSocket } from '../../lib/socket.js';
+import { TZ } from '../../lib/format.js';
 
 /**
  * Everything the admin panel shows, kept live over the socket.
@@ -24,7 +25,7 @@ export function useAdminData(onEvent) {
 
   const loadMenu = useCallback(() => guard(Promise.all([api.get('/menu'), api.get('/admin/settings')])
     .then(([m, s]) => { setMenu({ categories: m.categories, dishes: m.dishes }); setSettings(s); })), []);
-  const loadStats = useCallback(() => guard(api.get('/admin/stats').then(setStats)), []);
+  const loadStats = useCallback(() => guard(api.get('/admin/stats?tz=' + encodeURIComponent(TZ)).then(setStats)), []);
   const loadOrders = useCallback(() => guard(Promise.all([api.get('/admin/orders'), api.get('/admin/calls')])
     .then(([o, c]) => {
       setOrders(o); setCalls(c);

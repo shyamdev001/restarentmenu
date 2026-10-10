@@ -168,6 +168,34 @@ test('an uploaded photo is kept in the database and served back', async () => {
   assert.equal((await fetch(url + '/uploads/aaaaaaaaaaaaaaaaaaaaaaaa.png')).status, 404);
 });
 
+test('reports add up, in the time zone of the restaurant', async () => {
+  const zone = 'Asia/Kolkata';
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const { body: report } = await call('GET', `/admin/reports?from=${today}&to=${today}&tz=${zone}`, null, { admin: true });
+
+  const sold = await Order.find({ status: { $ne: 'cancelled' } });
+  assert.equal(report.totals.orders, sold.length);
+  assert.equal(report.totals.revenue, Math.round(sold.reduce((n, o) => n + o.total, 0) * 100) / 100);
+  assert.equal(report.byDay.length, 1);
+  assert.equal(report.byDay[0].day, today);
+  assert.equal(report.byHour.reduce((n, h) => n + h.orders, 0), sold.length);
+  assert.equal(report.sellers[0].qty, sold.reduce((n, o) => n + o.items.reduce((m, i) => m + i.qty, 0), 0), 'every test order was the same dish');
+  assert.ok(report.unsold.length > 0, 'the rest of the menu is listed as not sold');
+  assert.equal(report.byCategory.reduce((n, c) => n + c.qty, 0), report.totals.plates);
+
+  const stats = await call('GET', `/admin/stats?tz=${zone}`, null, { admin: true });
+  assert.equal(stats.body.orders, report.totals.orders);
+
+  const csv = await fetch(url + `/api/admin/reports/export?from=${today}&to=${today}&tz=${zone}`, { headers: { cookie } });
+  assert.equal(csv.status, 200);
+  assert.match(csv.headers.get('content-disposition'), /attachment; filename="orders-/);
+  const lines = (await csv.text()).trim().split('\r\n');
+  assert.equal(lines.length, 1 + (await Order.countDocuments()), 'a heading plus one line per order');
+
+  assert.equal((await call('GET', '/admin/reports?from=2026-02-01&to=2026-01-01', null, { admin: true })).status, 400);
+  assert.equal((await call('GET', '/admin/reports')).status, 401, 'reports are for signed-in staff only');
+});
+
 test('history lists today, and the QR rule can be switched off', async () => {
   const days = await call('GET', '/admin/history', null, { admin: true });
   assert.ok(days.body[0].orders >= 1);

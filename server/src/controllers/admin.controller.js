@@ -6,6 +6,7 @@ import { Category, Dish, Image, Order, ServiceCall, Setting, getSettings } from 
 import { ApiError, asyncHandler } from '../utils/ApiError.js';
 import { moveOrder, toPublicOrder } from '../services/order.service.js';
 import { openTables, settleTable, tableCode } from '../services/tables.js';
+import { buildReport, ordersCsv, ordersIn, rangeOf, todayIn, zoneOf } from '../services/reports.js';
 import { realtime } from '../services/socket.js';
 import { push, saveSubscription } from '../services/push.js';
 import { IMAGE_TYPES, UPLOAD_DIR } from '../middleware/index.js';
@@ -49,15 +50,14 @@ export const tableCodes = asyncHandler(async (_req, res) => {
 });
 
 /* ----------------------------------- History ---------------------------------- */
-const ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-/** GET /history : one line per day for the last 60 days that had orders. */
-export const historyDays = asyncHandler(async (_req, res) => {
+/** GET /history?tz= : one line per day for the last 60 days that had orders. */
+export const historyDays = asyncHandler(async (req, res) => {
+  const zone = zoneOf(req.query.tz);
   const since = new Date(Date.now() - 60 * 24 * 3600 * 1000);
   const days = await Order.aggregate([
     { $match: { createdAt: { $gte: since }, status: { $ne: 'cancelled' } } },
     { $group: {
-      _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: ZONE } },
+      _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: zone } },
       orders: { $sum: 1 }, revenue: { $sum: '$total' }, plates: { $sum: { $sum: '$items.qty' } }
     } },
     { $sort: { _id: -1 } }
@@ -65,27 +65,33 @@ export const historyDays = asyncHandler(async (_req, res) => {
   res.json(days.map((d) => ({ day: d._id, orders: d.orders, plates: d.plates, revenue: Math.round(d.revenue * 100) / 100 })));
 });
 
-/** GET /history/:day (YYYY-MM-DD) : every order placed that day. */
+/** GET /history/:day?tz= (YYYY-MM-DD) : every order placed that day. */
 export const historyDay = asyncHandler(async (req, res) => {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(req.params.day);
-  if (!match) throw ApiError.badRequest('Use a date like 2026-01-31.');
-  const start = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  const end = new Date(start); end.setDate(end.getDate() + 1);
-  res.json(await Order.find({ createdAt: { $gte: start, $lt: end } }).sort({ createdAt: -1 }).limit(1000));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(req.params.day)) throw ApiError.badRequest('Use a date like 2026-01-31.');
+  const orders = await ordersIn({ from: req.params.day, to: req.params.day, zone: zoneOf(req.query.tz) }, 1000);
+  res.json(orders.map(({ _id, __v, day, hour, ...order }) => ({ ...order, id: String(_id) })));
 });
 
-export const getStats = asyncHandler(async (_req, res) => {
-  const start = new Date(); start.setHours(0, 0, 0, 0);
-  const [today, active] = await Promise.all([
-    Order.find({ createdAt: { $gte: start }, status: { $ne: 'cancelled' } }).select('total items.qty').lean(),
+export const getStats = asyncHandler(async (req, res) => {
+  // "Today" is the restaurant's day (its time zone comes from the admin's browser), not the server's.
+  const zone = zoneOf(req.query.tz);
+  const day = todayIn(zone);
+  const [report, active] = await Promise.all([
+    buildReport({ from: day, to: day, zone }),
     Order.countDocuments({ status: { $in: ['new', 'cooking', 'ready'] } })
   ]);
-  res.json({
-    orders: today.length,
-    revenue: Math.round(today.reduce((sum, o) => sum + (o.total || 0), 0) * 100) / 100,
-    items: today.reduce((sum, o) => sum + o.items.reduce((n, i) => n + (i.qty || 0), 0), 0),
-    active
-  });
+  res.json({ orders: report.totals.orders, revenue: report.totals.revenue, items: report.totals.plates, active });
+});
+
+/* ----------------------------------- Reports ---------------------------------- */
+/** GET /reports?from=&to=&tz= : sales, busiest hours and best sellers for a range of days. */
+export const report = asyncHandler(async (req, res) => res.json(await buildReport(rangeOf(req.query))));
+
+/** GET /reports/export?from=&to=&tz= : the same range as a spreadsheet file, one line per order. */
+export const reportCsv = asyncHandler(async (req, res) => {
+  const range = rangeOf(req.query);
+  res.set('Content-Disposition', `attachment; filename="orders-${range.from}-to-${range.to}.csv"`)
+    .type('text/csv').send('\uFEFF' + await ordersCsv(range)); // the mark makes Excel read the currency sign correctly
 });
 
 /* ----------------------------------- Calls ---------------------------------- */

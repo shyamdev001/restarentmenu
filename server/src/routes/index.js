@@ -31,6 +31,8 @@ a.use(requireAdmin);
 a.get('/orders', admin.listOrders);
 a.patch('/orders/:id', validate(s.statusSchema), admin.updateOrderStatus);
 a.get('/stats', admin.getStats);
+a.get('/reports', admin.report);
+a.get('/reports/export', admin.reportCsv);
 a.get('/history', admin.historyDays);
 a.get('/history/:day', admin.historyDay);
 

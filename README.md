@@ -45,6 +45,8 @@ To try it on your phone, connect the phone to the same Wi-Fi and open `http://<y
 | Tab | What it does |
 | --- | --- |
 | Orders | Live board: New → Cooking → Ready → Served, plus open tables to mark as paid. Each new order rings, shows a notice and lands in the bell's list. Shows tables calling a server or asking for the bill, and today's totals. |
+| History | Every day of the last 60 with orders, and that day's orders. |
+| Reports | Sales, orders and average bill for any range of days; sales by day, busiest hours, best sellers, sales by category, dishes that did not sell, and a spreadsheet export. Days and hours follow the time zone of the device you are looking from. |
 | Menu | Add, edit and delete dishes. Upload a photo. One switch marks a dish sold out; guests see it immediately. |
 | Categories | Add, rename, reorder and delete categories. |
 | Tables & QR | A printable QR code for every table. |
