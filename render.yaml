@@ -1,0 +1,26 @@
+# Render blueprint: one web service that runs the API, the live connection and the built site.
+# In Render choose New > Blueprint, pick this repository, then fill in the values it asks for.
+services:
+  - type: web
+    name: saffron-menu
+    runtime: node
+    plan: free
+    # Vite is a dev dependency, so it is installed explicitly even though NODE_ENV is production.
+    buildCommand: npm install --prefix server && npm install --prefix client --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false   # your MongoDB Atlas connection string
+      - key: ADMIN_USERNAME
+        sync: false   # the first admin account, created on first start
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false   # mailto:you@yourrestaurant.com, used for push notifications
