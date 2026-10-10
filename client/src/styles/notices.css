@@ -1,0 +1,81 @@
+/* ==========================================================================
+   Live notices. One look for the guest menu and the admin panel: a dark card
+   with a gold seal, dropping in from the top edge.
+   ========================================================================== */
+
+.n-stack {
+  position: fixed; z-index: 100; left: 0; right: 0;
+  top: calc(10px + env(safe-area-inset-top));
+  padding: 0 calc(12px + env(safe-area-inset-right)) 0 calc(12px + env(safe-area-inset-left));
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  pointer-events: none;
+}
+@media (min-width: 700px) { .n-stack { left: auto; top: calc(16px + env(safe-area-inset-top)); align-items: flex-end; transition: right 0.45s cubic-bezier(0.16, 1, 0.3, 1); } }
+/* A drawer is open on the right: sit beside it, not on top of its title and close button. */
+@media (min-width: 900px) and (min-aspect-ratio: 11/10) { .n-stack.is-aside { right: 504px; } }
+@media (orientation: landscape) and (max-height: 560px) and (min-width: 560px) { .n-stack.is-aside { right: auto; left: 0; align-items: flex-start; width: 50%; } }
+
+.n-card {
+  --seal: linear-gradient(135deg, #f0d9a4 0%, #d9b46a 46%, #b3842f 100%);
+  position: relative; pointer-events: auto; overflow: hidden;
+  width: min(420px, 100%); display: flex; align-items: stretch;
+  border-radius: 20px; border: 1px solid var(--hair);
+  background: var(--card); color: var(--text);
+  box-shadow: 0 26px 50px -14px rgb(var(--shade) / 0.323), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transform-origin: 50% 0;
+  animation: nIn 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.n-card.is-loud { border-color: var(--gold); }
+.n-card.is-bad { --seal: linear-gradient(135deg, #ffc9bd 0%, #ff9d8a 100%); border-color: rgb(var(--bad-rgb) / 0.6); }
+.n-card.is-leaving { animation: nOut 0.3s ease forwards; }
+
+.n-main {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px;
+  padding: 14px 4px 16px 14px; border: 0; background: none; color: inherit; text-align: left; cursor: pointer;
+}
+.n-icon {
+  position: relative; width: 44px; height: 44px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; background: var(--seal); color: var(--dark);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.n-icon svg { animation: nPop 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.15s backwards; }
+.is-loud .n-icon svg { animation: nRing 0.9s ease-in-out 0.2s 2; transform-origin: 50% 10%; }
+/* A ring leaves the seal, like a struck bell. */
+.is-loud .n-icon::after {
+  content: ''; position: absolute; inset: 0; border-radius: 50%; border: 1px solid var(--accent);
+  animation: nEcho 1.4s cubic-bezier(0.16, 1, 0.3, 1) 0.2s 2 backwards;
+}
+.n-text { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.n-text b { font-family: var(--serif); font-weight: 500; font-size: 18px; line-height: 1.2; text-wrap: balance; }
+.n-text span { font-size: 13px; line-height: 1.4; color: var(--muted); overflow-wrap: anywhere; }
+.n-x { width: 44px; flex: none; border: 0; background: none; color: var(--muted); display: grid; place-items: center; cursor: pointer; transition: color 0.2s ease; }
+.n-x:hover { color: var(--text); }
+.n-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--gold); transform-origin: left; animation: nDrain linear forwards; }
+.is-bad .n-bar { background: var(--bad); }
+.n-card:hover .n-bar, .n-card:focus-within .n-bar { animation-play-state: paused; }
+
+/* Important news lights the edge of the whole screen once. */
+.n-flash {
+  position: fixed; inset: 0; pointer-events: none;
+  box-shadow: inset 0 0 0 2px rgb(var(--gold-rgb) / 0.95), inset 0 0 150px 12px rgb(var(--gold-rgb) / 0.6);
+  animation: nFlash 1.7s ease-out forwards;
+}
+.n-flash.is-bad { box-shadow: inset 0 0 0 2px rgb(var(--bad-rgb) / 0.95), inset 0 0 150px 12px rgba(255, 120, 100, 0.45); }
+
+@keyframes nIn { from { opacity: 0; transform: translateY(-34px) scale(0.9); } to { opacity: 1; transform: none; } }
+@keyframes nOut { to { opacity: 0; transform: translateY(-14px) scale(0.96); } }
+@keyframes nDrain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes nPop { from { transform: scale(0.3); opacity: 0; } 60% { transform: scale(1.2); } to { transform: none; opacity: 1; } }
+@keyframes nRing { 0%, 100% { transform: rotate(0); } 15% { transform: rotate(18deg); } 30% { transform: rotate(-16deg); } 45% { transform: rotate(12deg); } 60% { transform: rotate(-8deg); } 75% { transform: rotate(4deg); } }
+@keyframes nEcho { from { transform: scale(1); opacity: 0.9; } to { transform: scale(2.4); opacity: 0; } }
+@keyframes nFlash { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .n-card, .n-card.is-leaving, .n-icon svg, .is-loud .n-icon svg { animation: none; }
+  .is-loud .n-icon::after, .n-flash { display: none; }
+  /* The line still times the notice out; it just is not shown moving. */
+  .n-bar { opacity: 0; }
+}
+@media print { .n-stack { display: none; } }
+
+:root[data-theme='dark'] .n-card { box-shadow: 0 26px 50px -14px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.06); }

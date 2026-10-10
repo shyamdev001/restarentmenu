@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+server/uploads/*
+!server/uploads/seed/
+*.log
+.DS_Store
+
+# Local tool settings
+.claude/
+.impeccable/

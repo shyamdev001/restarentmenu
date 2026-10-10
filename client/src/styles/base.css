@@ -1,0 +1,128 @@
+:root {
+  color-scheme: light;
+  /* Light: warm paper, espresso ink, bronze for what matters. */
+  --paper: #f8f1e5;
+  --paper-rgb: 248 241 229;
+  --card: #fffcf6;
+  --card-hi: #fffdf8;        /* top of a panel */
+  --card-lo: #fbf5ea;        /* bottom of a panel */
+  --text: #24170d;
+  --fg: 36 23 13;            /* the ink as numbers, for see-through lines and fills */
+  --soft: #4d3b2a;
+  --muted: #6a5845;
+  --faint: #77654f;
+  --gold: #8a5a14;
+  --gold-rgb: 150 100 24;
+  --accent: #7d4a12;
+  --gold-hi: #f3dfae;        /* light gold, only for marks that sit on something dark */
+  --dark: #1c1208;           /* ink on gold buttons, in both themes */
+  --shade: 70 45 15;         /* shadow colour */
+  --bad: #b3261e;
+  --bad-rgb: 179 38 30;
+  --good: #1f7a3a;
+  --good-rgb: 31 122 58;
+  --glass: rgba(255, 252, 246, 0.74);
+  --scrim: rgba(70, 48, 24, 0.45);
+  --veil: rgba(255, 253, 248, 0.84);
+  --glow-a: #fff4dc;         /* centre and edge of the warm light on the welcome and login */
+  --glow-b: #f4e6cb;
+  --top-glow: 246 223 174;
+  --well: #eadfcb;           /* behind a photo while it loads */
+  --rim: #fffaf0;            /* the ring between the gold rim and the food */
+  --new-a: #fff1cf;          /* a new order card */
+  --new-b: #fff9ea;
+  --vapor: rgba(150, 120, 90, 0.24);
+  --smoke: 140 110 80;
+  --spark: #d6a445;
+  --spark-rgb: 214 164 69;
+  --on-select: #fff;
+  --line: rgb(var(--fg) / 0.12);
+  --hair: rgb(var(--gold-rgb) / 0.4);
+  --serif: 'Bodoni Moda', 'Times New Roman', serif;
+  --sans: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* Dark: the same room with the lights down. Chosen with the sun and moon button. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --paper: #080503;
+  --paper-rgb: 8 5 3;
+  --card: #14100c;
+  --card-hi: #1b140e;
+  --card-lo: #120d09;
+  --text: #fbf1df;
+  --fg: 251 241 223;
+  --soft: #e3d6c1;
+  --muted: #c4b59f;
+  --faint: #a89a85;
+  --gold: #dcb978;
+  --gold-rgb: 220 185 120;
+  --accent: #f3dfae;
+  --shade: 0 0 0;
+  --bad: #ffa392;
+  --bad-rgb: 255 163 146;
+  --good: #9bd8a4;
+  --good-rgb: 155 216 164;
+  --glass: rgba(30, 21, 14, 0.5);
+  --scrim: rgba(6, 4, 3, 0.78);
+  --veil: rgba(8, 5, 3, 0.66);
+  --glow-a: #7a3408;
+  --glow-b: #2a1206;
+  --top-glow: 58 26 8;
+  --well: #120c08;
+  --rim: #0c0806;
+  --new-a: #24190d;
+  --new-b: #150f09;
+  --vapor: rgba(255, 255, 255, 0.5);
+  --smoke: 255 244 224;
+  --spark: #ffe9b8;
+  --spark-rgb: 243 205 130;
+  --on-select: #170f0a;
+  --hair: rgb(var(--gold-rgb) / 0.3);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--text);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+img { display: block; max-width: 100%; }
+h1, h2, h3, p { margin: 0; }
+
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+::selection { background: var(--gold); color: var(--on-select); }
+input, textarea { caret-color: var(--gold); }
+* { scrollbar-width: thin; scrollbar-color: rgb(var(--gold-rgb) / 0.4) transparent; }
+
+.boot {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 22px;
+}
+.boot p { margin-top: 22px; }
+.boot__retry {
+  min-height: 48px; padding: 0 26px; border-radius: 24px; border: 1px solid var(--hair); background: var(--card);
+  color: var(--text); font-family: var(--sans); font-style: normal; font-size: 15px; font-weight: 600;
+}
+
+/* Switching theme: the new one fades in over the old. */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.45s; }
+@media (prefers-reduced-motion: reduce) { ::view-transition-old(root), ::view-transition-new(root) { animation: none; } }
