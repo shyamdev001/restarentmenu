@@ -42,8 +42,11 @@ To try it on your phone, connect the phone to the same Wi-Fi and open `http://<y
 
 ## Admin panel
 
-| Tab | What it does |
+Sections are listed down the side on a laptop and along the bottom on a phone (the less-used ones sit under **More**). The search box at the top finds things by plain words: type "gst", "password", "qr" or a dish's name and press Enter.
+
+| Section | What it does |
 | --- | --- |
+| Home | What needs doing now (new orders, table calls, tables to mark paid), today's figures, anything still to set up, and shortcuts. |
 | Orders | Live board: New → Cooking → Ready → Served, plus open tables to mark as paid. Each new order rings, shows a notice and lands in the bell's list. Shows tables calling a server or asking for the bill, and today's totals. |
 | History | Every day of the last 60 with orders, and that day's orders. |
 | Reports | Everything the orders can tell you, for any range of days, compared with the period before. **Overview:** sales, orders, average bill, tax collected, cancellations, sales by day and a day-by-day table. **Dishes:** best sellers with their share of sales, categories, extras, spice choices, dishes that did not sell. **Days and hours:** busiest hours, an average weekday, and a weekday-by-hour map. **Tables:** sales per table and order sizes. **Kitchen and service:** how long orders take at each step, calls from tables and how fast they were answered. Three spreadsheet downloads: orders, dishes, days. Days and hours follow the time zone of the device you are looking from. |

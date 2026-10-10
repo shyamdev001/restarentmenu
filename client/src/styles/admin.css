@@ -31,21 +31,10 @@
   background: rgb(var(--paper-rgb) / 0.97);
   border-bottom: 1px solid var(--hair);
 }
-.a-head .a-wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; column-gap: 12px; }
-.a-head__row { display: contents; }
+.a-head .a-wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 0 10px; min-height: 64px; }
 .a-brand { min-height: 60px; display: flex; align-items: baseline; align-content: center; flex-wrap: wrap; align-self: center; gap: 0 10px; font-family: var(--serif); font-size: clamp(20px, 2.4vw, 24px); font-weight: 500; letter-spacing: -0.01em; line-height: 1.1; flex: 1 1 0; min-width: 0; padding: 12px 0; }
 .a-brand small { font-family: var(--sans); font-size: 10px; letter-spacing: 0.3em; color: var(--gold); font-weight: 600; }
 .a-head .a-btn { min-height: 40px; padding: 0 14px; font-size: 13px; flex: none; }
-/* Every section is always in sight: the row wraps onto a second line when it runs out of room, and never scrolls sideways. */
-.a-tabs { order: 3; flex: 1 0 100%; min-width: 0; display: flex; flex-wrap: wrap; gap: 0 clamp(16px, 2.6vw, 30px); }
-.a-tab {
-  position: relative; flex: none; min-height: 44px; padding: 0; border: 0; background: transparent;
-  color: var(--muted); font-size: 11.5px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; white-space: nowrap;
-  display: flex; align-items: center; gap: 8px; transition: color 0.3s ease;
-}
-.a-tab::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--gold); transform: scaleX(0); transform-origin: left; transition: transform 0.5s var(--out); }
-.a-tab.is-on { color: var(--text); }
-.a-tab.is-on::after { transform: scaleX(1); }
 .a-badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--satin); color: var(--dark); font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0; display: grid; place-items: center; }
 
 /* ---------------------------------- Page ---------------------------------- */
@@ -213,7 +202,8 @@ p.a-error { padding: 12px 16px; border-radius: 12px; border: 1px solid rgb(var(-
   .a-app *, .a-app *::before, .a-app *::after { animation: none !important; transition-duration: 0.01ms !important; }
 }
 @media print {
-  .a-head, .a-noprint { display: none !important; }
+  .a-head, .a-side, .a-bottom, .a-more, .a-noprint { display: none !important; }
+  .a-shell { display: block; }
   .a-app { background: #fff; padding: 0; }
   .a-app::before { display: none; }
   .a-qr { border: 1px solid #ccc; box-shadow: none; background: #fff; }
@@ -419,3 +409,102 @@ p.a-error { padding: 12px 16px; border-radius: 12px; border: 1px solid rgb(var(-
 .a-heat td button:hover, .a-heat td button:focus-visible { outline: 2px solid var(--text); outline-offset: 1px; }
 
 @media (max-width: 560px) { .a-export { width: 100%; } .a-export .a-btn { flex: 1; } }
+
+/* ==========================================================================
+   The shell: sections down the side on a laptop, along the bottom on a phone,
+   and a search box at the top of every page.
+   ========================================================================== */
+.a-shell { display: grid; grid-template-columns: minmax(0, 1fr); }
+.a-body { min-width: 0; }
+
+.a-nav {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 0 12px; border: 0; border-radius: 12px;
+  background: none; color: var(--soft); font-size: 14.5px; font-weight: 600; text-align: left; white-space: nowrap;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.a-nav svg { flex: none; color: var(--muted); transition: color 0.2s ease; }
+.a-nav > span:first-of-type { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.a-nav.is-on { background: rgb(var(--gold-rgb) / 0.14); color: var(--text); }
+.a-nav.is-on svg { color: var(--gold); }
+@media (hover: hover) { .a-nav:hover:not(.is-on) { background: rgb(var(--fg) / 0.05); color: var(--text); } }
+
+.a-side { display: none; }
+.a-brand--top { flex: 1 1 auto; min-height: 56px; }
+
+/* The search box. On a phone it takes its own line under the name. */
+.a-find { position: relative; order: 5; flex: 1 0 100%; padding-bottom: 12px; }
+.a-find__box { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 14px; border-radius: 23px; border: 1px solid var(--rule); background: var(--field); color: var(--muted); transition: border-color 0.25s ease, background 0.25s ease; }
+.a-find__box:focus-within { border-color: var(--gold); background: var(--card); }
+.a-find__box input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--text); font-size: 16px; }
+.a-find__box input::placeholder { color: var(--faint); }
+.a-find__box input::-webkit-search-cancel-button { display: none; }
+.a-find__box kbd { display: none; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--rule); font: 600 12px var(--sans); color: var(--muted); place-items: center; }
+.a-find__list {
+  position: absolute; z-index: 3; left: 0; right: 0; top: calc(100% - 6px); margin: 0; padding: 8px; list-style: none;
+  max-height: min(420px, 60dvh); overflow-y: auto; overscroll-behavior: contain;
+  border-radius: 18px; border: 1px solid var(--hair); background: var(--card); box-shadow: 0 30px 60px -20px rgb(var(--shade) / 0.55);
+  animation: aIn 0.3s var(--out) both;
+}
+.a-find__list button { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 46px; padding: 6px 12px; border: 0; border-radius: 11px; background: none; color: var(--text); text-align: left; }
+.a-find__list button svg { flex: none; color: var(--gold); }
+.a-find__list button b { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.a-find__list button span { flex: none; font-size: 12.5px; color: var(--muted); }
+.a-find__list button.is-at { background: rgb(var(--gold-rgb) / 0.14); }
+.a-find__head { padding: 6px 12px 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.a-find__none { padding: 14px 12px; font-size: 14px; line-height: 1.5; color: var(--muted); }
+
+/* Phone: the bottom bar and its More sheet. */
+.a-app.a-shell { padding-bottom: calc(92px + env(safe-area-inset-bottom)); }
+.a-bottom {
+  position: fixed; z-index: 30; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); background: rgb(var(--paper-rgb) / 0.98); border-top: 1px solid var(--hair);
+}
+.a-bottom .a-nav { position: relative; flex-direction: column; justify-content: center; gap: 4px; min-height: 54px; padding: 4px 2px; font-size: 11px; font-weight: 600; text-align: center; }
+.a-bottom .a-nav > span:first-of-type { flex: none; max-width: 100%; }
+.a-bottom .a-nav.is-on { background: none; color: var(--accent); }
+.a-bottom .a-nav .a-badge { position: absolute; top: 2px; left: calc(50% + 6px); }
+.a-more__veil { position: fixed; inset: 0; z-index: 28; border: 0; padding: 0; background: var(--scrim); animation: aFade 0.25s ease both; }
+.a-more {
+  position: fixed; z-index: 29; left: 10px; right: 10px; bottom: calc(76px + env(safe-area-inset-bottom)); padding: 10px;
+  display: flex; flex-direction: column; gap: 2px; border-radius: 20px; border: 1px solid var(--hair); background: var(--card);
+  box-shadow: 0 30px 60px -20px rgb(var(--shade) / 0.6); animation: aIn 0.35s var(--out) both;
+}
+.a-more .a-nav { min-height: 50px; }
+
+/* Laptop and up: the side list replaces the bottom bar. */
+@media (min-width: 960px) {
+  .a-shell { grid-template-columns: 248px minmax(0, 1fr); }
+  .a-app.a-shell { padding-bottom: 60px; }
+  .a-side {
+    position: sticky; top: 0; height: 100vh; height: 100dvh; display: flex; flex-direction: column; gap: 18px;
+    padding: 18px 14px; border-right: 1px solid var(--hair); background: rgb(var(--paper-rgb) / 0.6); overflow-y: auto;
+  }
+  .a-side .a-brand { min-height: 0; padding: 6px 12px 4px; flex: none; }
+  .a-side nav { display: flex; flex-direction: column; gap: 16px; }
+  .a-navgroup { display: flex; flex-direction: column; gap: 2px; }
+  .a-navgroup h2 { padding: 0 12px 6px; font: 600 10.5px var(--sans); letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+  .a-side__foot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .a-side__foot .a-live { padding: 0 12px; }
+  .a-bottom, .a-more, .a-more__veil, .a-brand--top { display: none; }
+  .a-head .a-wrap { flex-wrap: nowrap; gap: 10px; }
+  .a-find { order: 0; flex: 1 1 auto; max-width: 560px; margin-right: auto; padding: 0; }
+  .a-find__list { top: calc(100% + 8px); }
+  .a-find__box kbd { display: grid; }
+}
+
+/* ------------------------------------ Home ------------------------------------ */
+.a-rows { display: flex; flex-direction: column; border-block: 1px solid var(--line); }
+.a-rows.is-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); column-gap: clamp(20px, 3vw, 40px); }
+.a-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 64px; padding: 10px 4px; border: 0; border-top: 1px solid var(--line); background: none; color: var(--text); text-align: left; transition: background 0.2s ease; }
+.a-rows > .a-row:first-child, .a-rows.is-two > .a-row { border-top: 0; }
+.a-rows.is-two > .a-row { border-bottom: 1px solid var(--line); margin-bottom: -1px; }
+.a-row__icon { flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: rgb(var(--gold-rgb) / 0.13); color: var(--gold); }
+.a-row.is-urgent .a-row__icon { background: var(--satin); color: var(--dark); }
+.a-row__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.a-row__text b { font-size: 15.5px; font-weight: 600; line-height: 1.3; }
+.a-row__text small { font-size: 13px; line-height: 1.4; color: var(--muted); overflow-wrap: anywhere; }
+.a-row__go { flex: none; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--accent); white-space: nowrap; }
+.a-row__go svg { transition: transform 0.3s var(--out); }
+@media (hover: hover) { .a-row:hover { background: rgb(var(--fg) / 0.035); } .a-row:hover .a-row__go svg { transform: translateX(3px); } }
+.a-sub__link { margin-left: auto; min-height: 36px; padding: 0 14px; font-family: var(--sans); font-size: 13px; }
+@media (max-width: 560px) { .a-row__go { font-size: 0; gap: 0; } }

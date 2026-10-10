@@ -15,14 +15,25 @@ import TablesQr from './TablesQr.jsx';
 import SettingsPage from './SettingsPage.jsx';
 import HistoryPage from './HistoryPage.jsx';
 import ReportsPage from './ReportsPage.jsx';
+import HomePage from './HomePage.jsx';
+import Finder from './Finder.jsx';
 import '../../styles/admin.css';
 
-const TABS = [['orders', 'Orders'], ['history', 'History'], ['reports', 'Reports'], ['menu', 'Menu'], ['categories', 'Categories'], ['tables', 'Tables & QR'], ['settings', 'Settings']];
+// Sections grouped by what they are for. [id, label, icon]
+const NAV = [
+  { group: 'Today', items: [['home', 'Home', 'home'], ['orders', 'Orders', 'receipt']] },
+  { group: 'Your business', items: [['reports', 'Reports', 'chart'], ['history', 'History', 'clock']] },
+  { group: 'Your menu', items: [['menu', 'Dishes', 'dish'], ['categories', 'Categories', 'grid']] },
+  { group: 'Setup', items: [['tables', 'Tables & QR', 'qr'], ['settings', 'Settings', 'gear']] }
+];
+const BAR = ['home', 'orders', 'menu', 'reports']; // on the phone's bottom bar; the rest sit under More
 
 const REMIND_MS = 60000; // while something is waiting, a quiet reminder this often
 
 function Panel({ user, onLogout }) {
-  const [tab, setTab] = useState('orders');
+  const [tab, setTab] = useState('home');
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [target, setTarget] = useState(null);   // something to open on arrival, e.g. a dish
   const [theme, toggleTheme] = useTheme();
   useSmoothScroll(true);
   // Every section opens from its top, not wherever the last one was left.
@@ -82,19 +93,52 @@ function Panel({ user, onLogout }) {
   }, [bellOpen]);
 
   const toggleBell = () => { setBellOpen((open) => !open); setUnread(0); };
+  const enableAlerts = async () => setAlerts(await askForAlerts());
   const toggleMute = () => { setMuted(!muted); setMute(!muted); if (muted) play('soft'); };
+
+  // One place to move between sections: also closes the phone's "More" sheet and carries any target (a dish to open).
+  const go = (to, extra) => { setTab(to); setMoreOpen(false); setTarget(extra || null); };
+  const run = (what) => { if (what === 'theme') toggleTheme(); else if (what === 'bell') { setBellOpen(true); setUnread(0); } };
 
   if (!data.settings) return <div className="boot">{data.error || 'Loading…'}</div>;
 
+  const navButton = ([id, label, icon], extraClass = '') => (
+    <button key={id} className={'a-nav' + (tab === id ? ' is-on' : '') + extraClass} onClick={() => go(id)} aria-current={tab === id ? 'page' : undefined}>
+      <Icon name={icon} size={18} /><span>{label}</span>
+      {id === 'orders' && waiting > 0 && <span className="a-badge">{waiting}</span>}
+    </button>
+  );
+  const everything = NAV.flatMap((g) => g.items);
+  const onBar = everything.filter(([id]) => BAR.includes(id));
+  const underMore = everything.filter(([id]) => !BAR.includes(id));
+
   return (
     <>
-    <div className="a-app">
-      <header className="a-head">
-        <div className="a-wrap">
-          <div className="a-head__row">
-            <div className="a-brand">{data.settings.name}<small>ADMIN</small>
+    <div className="a-app a-shell">
+      {/* Laptop and up: every section listed down the side, grouped by what it is for. */}
+      <aside className="a-side">
+        <div className="a-brand">{data.settings.name}<small>ADMIN</small></div>
+        <nav aria-label="Sections">
+          {NAV.map((g) => (
+            <div key={g.group} className="a-navgroup">
+              <h2>{g.group}</h2>
+              {g.items.map((item) => navButton(item))}
+            </div>
+          ))}
+        </nav>
+        <div className="a-side__foot">
+          <span className={'a-live' + (data.connected ? '' : ' is-off')} role="status">{data.connected ? 'Live' : 'Reconnecting'}</span>
+          <button className="a-nav" onClick={onLogout}><Icon name="logout" size={18} /><span>Sign out {user.username}</span></button>
+        </div>
+      </aside>
+
+      <div className="a-body">
+        <header className="a-head">
+          <div className="a-wrap">
+            <div className="a-brand a-brand--top">{data.settings.name}
               <span className={'a-live' + (data.connected ? '' : ' is-off')} role="status">{data.connected ? 'Live' : 'Reconnecting'}</span>
             </div>
+            <Finder dishes={data.menu.dishes} onGo={go} onRun={run} />
             <button className="a-btn is-icon a-theme" onClick={toggleTheme}
               aria-label={theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}>
               <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} />
@@ -103,18 +147,8 @@ function Panel({ user, onLogout }) {
               aria-expanded={bellOpen} aria-label={`Alerts${unread ? `, ${unread} new` : ''}`}>
               <Icon name="bell" size={18} />{unread > 0 && <span className="a-badge">{unread}</span>}
             </button>
-            <button className="a-btn a-out" onClick={onLogout} aria-label={`Sign out ${user.username}`}><Icon name="logout" size={16} /><span className="a-hide-xs">Sign out</span><span className="a-hide-sm">{user.username}</span></button>
-          </div>
-          <nav className="a-tabs" aria-label="Sections">
-            {TABS.map(([id, label]) => (
-              <button key={id} className={'a-tab' + (tab === id ? ' is-on' : '')} onClick={() => setTab(id)} aria-current={tab === id}>
-                {label}{id === 'orders' && waiting > 0 && <span className="a-badge">{waiting}</span>}
-              </button>
-            ))}
-          </nav>
 
-          {bellOpen && (
-            <>
+            {bellOpen && (
               <section className="a-pop" aria-label="Alerts" data-lenis-prevent>
                 <h2 className="a-sub">Alerts</h2>
                 <div className="a-pop__list">
@@ -132,27 +166,45 @@ function Panel({ user, onLogout }) {
                   <button className="a-switch" role="switch" aria-checked={!muted} aria-label="Sound and reminders" onClick={toggleMute} />
                 </div>
                 {alerts === 'default' && (
-                  <button className="a-btn is-gold" onClick={async () => setAlerts(await askForAlerts())}>Send alerts to this device, even when the panel is closed</button>
+                  <button className="a-btn is-gold" onClick={enableAlerts}>Send alerts to this device, even when the panel is closed</button>
                 )}
                 {alerts === 'granted' && <p className="a-pop__note">{pushed ? 'Push alerts are on: this device hears new orders and calls even with the panel closed.' : 'Alerts are on while this tab is open. Push could not be set up in this browser.'}</p>}
                 {alerts === 'denied' && <p className="a-pop__note">Alerts are blocked in this browser's site settings.</p>}
               </section>
-            </>
-          )}
-        </div>
-      </header>
+            )}
+          </div>
+        </header>
 
-      <main className="a-wrap a-main">
-        {silent && !muted && <p className="a-soundhint" role="status"><Icon name="sound" size={16} />Tap anywhere once so this screen can ring for new orders.</p>}
-        {data.error && <p className="a-error" role="alert">{data.error} <button className="a-btn" onClick={() => data.setError('')}>Dismiss</button></p>}
-        {tab === 'orders' && <OrdersBoard {...data} />}
-        {tab === 'history' && <HistoryPage settings={data.settings} setError={data.setError} />}
-        {tab === 'reports' && <ReportsPage settings={data.settings} setError={data.setError} />}
-        {tab === 'menu' && <MenuManager {...data} />}
-        {tab === 'categories' && <CategoryManager {...data} />}
-        {tab === 'tables' && <TablesQr settings={data.settings} />}
-        {tab === 'settings' && <SettingsPage settings={data.settings} reload={data.loadMenu} />}
-      </main>
+        <main className="a-wrap a-main">
+          {silent && !muted && <p className="a-soundhint" role="status"><Icon name="sound" size={16} />Tap anywhere once so this screen can ring for new orders.</p>}
+          {data.error && <p className="a-error" role="alert">{data.error} <button className="a-btn" onClick={() => data.setError('')}>Dismiss</button></p>}
+          {tab === 'home' && <HomePage {...data} alerts={alerts} go={go} onAlerts={enableAlerts} />}
+          {tab === 'orders' && <OrdersBoard {...data} />}
+          {tab === 'history' && <HistoryPage settings={data.settings} setError={data.setError} />}
+          {tab === 'reports' && <ReportsPage settings={data.settings} setError={data.setError} />}
+          {tab === 'menu' && <MenuManager {...data} open={target} onOpened={() => setTarget(null)} />}
+          {tab === 'categories' && <CategoryManager {...data} />}
+          {tab === 'tables' && <TablesQr settings={data.settings} />}
+          {tab === 'settings' && <SettingsPage settings={data.settings} reload={data.loadMenu} />}
+        </main>
+      </div>
+
+      {/* Phones: the four everyday sections along the bottom, the rest one tap away under More. */}
+      <nav className="a-bottom" aria-label="Sections">
+        {onBar.map((item) => navButton(item))}
+        <button className={'a-nav' + (moreOpen || underMore.some(([id]) => id === tab) ? ' is-on' : '')} onClick={() => setMoreOpen((v) => !v)} aria-expanded={moreOpen}>
+          <Icon name="more" size={18} strokeWidth={3} /><span>More</span>
+        </button>
+      </nav>
+      {moreOpen && (
+        <>
+          <button className="a-more__veil" onClick={() => setMoreOpen(false)} aria-label="Close" tabIndex={-1} />
+          <div className="a-more" role="dialog" aria-label="More sections">
+            {underMore.map((item) => navButton(item))}
+            <button className="a-nav" onClick={onLogout}><Icon name="logout" size={18} /><span>Sign out {user.username}</span></button>
+          </div>
+        </>
+      )}
     </div>
     <Notices items={notices} onDismiss={dismissNotice} />
     </>

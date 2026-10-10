@@ -1,12 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../../lib/api.js';
 import Icon from '../../components/Icon.jsx';
 import { fullName, money, thumb } from '../../lib/format.js';
 import DishForm from './DishForm.jsx';
 
-export default function MenuManager({ menu, settings, loadMenu, setError }) {
+export default function MenuManager({ menu, settings, loadMenu, setError, open, onOpened }) {
   const [editing, setEditing] = useState(null); // null | {} (new) | dish
   const { categories, dishes } = menu;
+
+  // Arriving from the search box or a shortcut: go straight to that dish, or to a blank one.
+  useEffect(() => {
+    if (!open) return;
+    if (open.newDish && categories.length) setEditing({});
+    else if (open.dishId) setEditing(dishes.find((d) => d.id === open.dishId) || null);
+    onOpened?.();
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = (dish) => api.patch(`/admin/dishes/${dish.id}/availability`, { available: !dish.available })
     .then(loadMenu).catch((e) => setError(e.message));
