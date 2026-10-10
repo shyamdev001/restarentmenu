@@ -70,6 +70,8 @@ const orderSchema = new Schema({
   total: Number,
   etaMin: Number,
   status: { type: String, enum: ORDER_STATUSES, default: 'new', index: true },
+  // When the order reached each step, for the kitchen-speed report.
+  cookingAt: Date, readyAt: Date, servedAt: Date, cancelledAt: Date,
   settled: { type: Boolean, default: false },     // the table has paid: no longer part of anyone's bill
   clientKey: { type: String }                     // made by the guest's phone, so a retried send is not a second order
 }, jsonOptions);

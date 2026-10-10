@@ -6,7 +6,7 @@ import { Category, Dish, Image, Order, ServiceCall, Setting, getSettings } from 
 import { ApiError, asyncHandler } from '../utils/ApiError.js';
 import { moveOrder, toPublicOrder } from '../services/order.service.js';
 import { openTables, settleTable, tableCode } from '../services/tables.js';
-import { buildReport, ordersCsv, ordersIn, rangeOf, todayIn, zoneOf } from '../services/reports.js';
+import { buildReport, exportCsv, ordersIn, rangeOf, todayIn, zoneOf } from '../services/reports.js';
 import { realtime } from '../services/socket.js';
 import { push, saveSubscription } from '../services/push.js';
 import { IMAGE_TYPES, UPLOAD_DIR } from '../middleware/index.js';
@@ -87,11 +87,12 @@ export const getStats = asyncHandler(async (req, res) => {
 /** GET /reports?from=&to=&tz= : sales, busiest hours and best sellers for a range of days. */
 export const report = asyncHandler(async (req, res) => res.json(await buildReport(rangeOf(req.query))));
 
-/** GET /reports/export?from=&to=&tz= : the same range as a spreadsheet file, one line per order. */
+/** GET /reports/export?kind=orders|dishes|days&from=&to=&tz= : the range as a spreadsheet file. */
 export const reportCsv = asyncHandler(async (req, res) => {
   const range = rangeOf(req.query);
-  res.set('Content-Disposition', `attachment; filename="orders-${range.from}-to-${range.to}.csv"`)
-    .type('text/csv').send('\uFEFF' + await ordersCsv(range)); // the mark makes Excel read the currency sign correctly
+  const kind = ['orders', 'dishes', 'days'].includes(req.query.kind) ? req.query.kind : 'orders';
+  res.set('Content-Disposition', `attachment; filename="${kind}-${range.from}-to-${range.to}.csv"`)
+    .type('text/csv').send('\uFEFF' + await exportCsv(range, kind)); // the mark makes Excel read accents correctly
 });
 
 /* ----------------------------------- Calls ---------------------------------- */

@@ -31,7 +31,7 @@ export async function moveOrder(id, next) {
   const from = MAY_COME_FROM[next];
   if (!from) throw ApiError.badRequest('An order cannot be moved back to new.');
 
-  const order = await Order.findOneAndUpdate({ _id: id, status: { $in: from } }, { status: next }, { new: true });
+  const order = await Order.findOneAndUpdate({ _id: id, status: { $in: from } }, { status: next, [next + 'At']: new Date() }, { new: true });
   if (order) return { order, changed: true };
 
   const current = await Order.findById(id);

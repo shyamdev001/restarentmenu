@@ -192,6 +192,25 @@ test('reports add up, in the time zone of the restaurant', async () => {
   const lines = (await csv.text()).trim().split('\r\n');
   assert.equal(lines.length, 1 + (await Order.countDocuments()), 'a heading plus one line per order');
 
+  // The wider picture: every breakdown accounts for the same orders.
+  assert.equal(report.byWeekday.reduce((n, w) => n + w.orders, 0), sold.length);
+  assert.equal(report.heat.reduce((n, h) => n + h.orders, 0), sold.length);
+  assert.equal(report.byTable.reduce((n, t) => n + t.orders, 0), sold.length);
+  assert.equal(report.sizes.reduce((n, s) => n + s.orders, 0), sold.length);
+  assert.equal(report.totals.tax, Math.round(sold.reduce((n, o) => n + o.tax, 0) * 100) / 100);
+  assert.equal(report.previous.orders, 0, 'nothing was sold in the previous period');
+  assert.ok(Math.abs(report.sellers.reduce((n, d) => n + d.share, 0) - 100) < 0.5, 'shares of sales add up to 100%');
+  const timed = await Order.countDocuments({ status: 'served', servedAt: { $type: 'date' } });
+  assert.equal(report.kitchen.timed, timed, 'orders moved through the board are timed');
+  assert.ok(report.kitchen.total >= 0);
+  assert.equal(report.calls.waiter, await ServiceCall.countDocuments({ type: 'waiter' }));
+
+  for (const kind of ['dishes', 'days']) {
+    const file = await fetch(url + `/api/admin/reports/export?kind=${kind}&from=${today}&to=${today}&tz=${zone}`, { headers: { cookie } });
+    assert.equal(file.status, 200);
+    assert.match(file.headers.get('content-disposition'), new RegExp(`filename="${kind}-`));
+  }
+
   assert.equal((await call('GET', '/admin/reports?from=2026-02-01&to=2026-01-01', null, { admin: true })).status, 400);
   assert.equal((await call('GET', '/admin/reports')).status, 401, 'reports are for signed-in staff only');
 });
