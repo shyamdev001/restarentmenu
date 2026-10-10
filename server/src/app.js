@@ -37,7 +37,8 @@ export function createApp() {
   if (!env.isProd) app.use(morgan('dev'));
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
-  app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '7d', index: false, dotfiles: 'deny' }));
+  // Photo files never change once written (a new photo gets a new name), so phones may keep them for a long time.
+  app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '30d', immutable: true, index: false, dotfiles: 'deny' }));
   app.get('/uploads/:name', serveImage); // photos uploaded through the admin panel live in the database
   app.use('/api', routes);
   app.use('/api', notFound);

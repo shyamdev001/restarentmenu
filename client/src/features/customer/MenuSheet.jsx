@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Sheet from './Sheet.jsx';
 import Icon from '../../components/Icon.jsx';
-import { fullName, money } from '../../lib/format.js';
+import { fullName, money, thumb } from '../../lib/format.js';
 
 /** The whole menu as a searchable list. Tapping a row spins the carousel to that plate. */
 export default function MenuSheet({ open, onClose, categories, dishes, currency, onPick }) {
@@ -26,7 +26,7 @@ export default function MenuSheet({ open, onClose, categories, dishes, currency,
             <div className="c-group c-eyebrow" style={{ margin: '18px 0 6px' }}>{g.name}</div>
             {g.items.map((d) => (
               <button key={d.id} className={'c-item' + (d.available ? '' : ' is-out')} onClick={() => { setQuery(''); onPick(d); }}>
-                {d.image && <img src={d.image} alt="" loading="lazy" />}
+                {d.image && <img src={thumb(d.image)} alt="" loading="lazy" decoding="async" width="54" height="54" />}
                 <div>
                   <b>{fullName(d)}</b>
                   <small>{d.available ? d.description : 'Sold out today'}</small>

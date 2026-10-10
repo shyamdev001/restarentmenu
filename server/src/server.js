@@ -5,11 +5,13 @@ import { connectDb } from './config/db.js';
 import { createApp } from './app.js';
 import { initSocket, shareAcrossServers } from './services/socket.js';
 import { ensureSeed, importDiskPhotos } from './seed/seed.js';
+import { modernisePhotos } from './services/photos.js';
 
 async function main() {
   await connectDb();
   await ensureSeed();
   await importDiskPhotos();
+  await modernisePhotos();
 
   const server = http.createServer(createApp());
   initSocket(server);

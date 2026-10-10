@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api } from '../../lib/api.js';
 import Icon from '../../components/Icon.jsx';
-import { fullName, money } from '../../lib/format.js';
+import { fullName, money, thumb } from '../../lib/format.js';
 import DishForm from './DishForm.jsx';
 
 export default function MenuManager({ menu, settings, loadMenu, setError }) {
@@ -27,7 +27,7 @@ export default function MenuManager({ menu, settings, loadMenu, setError }) {
             <div className="a-list">
               {list.map((d) => (
                 <div key={d.id} className={'a-dish' + (d.available ? '' : ' is-off')}>
-                  {d.image ? <img src={d.image} alt="" loading="lazy" /> : <div className="a-thumb" />}
+                  {d.image ? <img src={thumb(d.image)} alt="" loading="lazy" decoding="async" /> : <div className="a-thumb" />}
                   <div className="a-dish__text">
                     <b>{fullName(d)}</b>
                     <span>{money(d.price, settings.currency)} · {d.veg ? 'Veg' : 'Non-veg'} · {d.available ? 'Available' : 'Sold out'}</span>

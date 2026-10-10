@@ -1,15 +1,12 @@
-import crypto from 'node:crypto';
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import QRCode from 'qrcode';
-import { Category, Dish, Image, Order, ServiceCall, Setting, getSettings } from '../models/index.js';
+import { Category, Dish, Order, ServiceCall, Setting, getSettings } from '../models/index.js';
 import { ApiError, asyncHandler } from '../utils/ApiError.js';
 import { moveOrder, toPublicOrder } from '../services/order.service.js';
 import { openTables, settleTable, tableCode } from '../services/tables.js';
 import { buildReport, exportCsv, ordersIn, rangeOf, todayIn, zoneOf } from '../services/reports.js';
 import { realtime } from '../services/socket.js';
 import { push, saveSubscription } from '../services/push.js';
-import { IMAGE_TYPES, UPLOAD_DIR } from '../middleware/index.js';
+import { removePhoto, savePhoto } from '../services/photos.js';
 
 const found = (doc, what) => { if (!doc) throw ApiError.notFound(`${what} not found.`); return doc; };
 
@@ -153,13 +150,6 @@ export const createDish = asyncHandler(async (req, res) => {
   res.status(201).json(dish);
 });
 
-/** Remove an uploaded photo, wherever it is kept. The bundled sample images are left alone. */
-async function removePhoto(url) {
-  if (!url?.startsWith('/uploads/') || url.startsWith('/uploads/seed/')) return;
-  const name = path.basename(url);
-  await Promise.all([Image.deleteOne({ name }), fs.unlink(path.join(UPLOAD_DIR, name)).catch(() => {})]);
-}
-
 export const updateDish = asyncHandler(async (req, res) => {
   await assertCategory(req.body.category);
   const before = found(await Dish.findById(req.params.id), 'Dish');
@@ -185,9 +175,8 @@ export const deleteDish = asyncHandler(async (req, res) => {
 
 export const uploadDishImage = asyncHandler(async (req, res) => {
   if (!req.file) throw ApiError.badRequest('Choose an image.');
-  const name = crypto.randomBytes(12).toString('hex') + IMAGE_TYPES[req.file.mimetype];
-  await Image.create({ name, type: req.file.mimetype, data: req.file.buffer });
-  res.status(201).json({ url: `/uploads/${name}` });
+  // Whatever was uploaded is stored as WebP, in a large and a small size.
+  res.status(201).json({ url: await savePhoto(req.file.buffer) });
 });
 
 /* --------------------------------- Settings --------------------------------- */

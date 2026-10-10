@@ -47,7 +47,7 @@ export async function ensureSeed({ reset = false } = {}) {
 
   await Dish.insertMany(data.rows.map((r, sort) => ({
     category: categoryId[r[1]], veg: !!r[2], word: r[3], name: r[4], accent: r[5], description: r[6],
-    price: r[7], prepMin: r[8], color: r[9], image: `/uploads/seed/${r[10]}.jpg`,
+    price: r[7], prepMin: r[8], color: r[9], image: `/uploads/seed/${r[10]}.webp`,
     ingredients: r[11], allergens: r[12], kcal: r[13], protein: r[14], spice: r[15], chefNote: r[16],
     addons: data.addons[r[1]].map(([name, price]) => ({ name, price })),
     sort

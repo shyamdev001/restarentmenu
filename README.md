@@ -66,7 +66,7 @@ To try it on your phone, connect the phone to the same Wi-Fi and open `http://<y
 - **Orders only move forward:** new → cooking → ready → served. An order can be cancelled until it leaves the kitchen.
 - **One bill per table.** The guest's bill shows everything the table ordered, from every phone. When the table has paid, tap **Mark paid** under Orders → Open tables; the guests' phones then start a fresh visit.
 - **History.** Admin → History lists every day of the last 60 with orders, with that day's orders and sales.
-- **Photos** uploaded in the admin are stored in the database, so they survive a redeploy.
+- **Photos** uploaded in the admin are converted to WebP (a much smaller format) in two sizes, a large one for the plate and a small one for lists, and stored in the database so they survive a redeploy. Any JPG, PNG or WebP can be uploaded. Older photos are converted automatically the next time the server starts.
 
 ## Tests
 

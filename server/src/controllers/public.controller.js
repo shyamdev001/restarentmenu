@@ -82,7 +82,7 @@ export const tableBill = asyncHandler(async (req, res) => {
 
 /** GET /uploads/:name : a dish photo kept in the database. */
 export const serveImage = asyncHandler(async (req, res) => {
-  const image = /^[a-f0-9]{24}\.(jpg|png|webp)$/.test(req.params.name) ? await Image.findOne({ name: req.params.name }) : null;
+  const image = /^[a-f0-9]{24}(-s)?\.(jpg|png|webp)$/.test(req.params.name) ? await Image.findOne({ name: req.params.name }) : null;
   if (!image) return res.status(404).json({ message: 'Not found.' });
   res.set('Cache-Control', 'public, max-age=604800, immutable').type(image.type).send(image.data);
 });

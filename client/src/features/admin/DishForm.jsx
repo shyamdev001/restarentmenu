@@ -8,15 +8,15 @@ const BLANK = {
   ingredients: [], allergens: '', kcal: 0, protein: 0, chefNote: '', image: '', color: '#7A2E0C', addons: [], available: true, sort: 0
 };
 
-/** Shrink a photo in the browser before upload, so phone photos stay fast for customers. */
-async function shrink(file, max = 1000) {
+/** Shrink a photo in the browser before upload, so a big phone photo uploads quickly. The server then stores it as WebP. */
+async function shrink(file, max = 1600) {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);
   canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.86));
+  return new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
 }
 
 export default function DishForm({ dish, categories, onClose, onSaved }) {
@@ -94,7 +94,7 @@ export default function DishForm({ dish, categories, onClose, onSaved }) {
           {form.image ? <img className="a-thumb" src={form.image} alt="" /> : <div className="a-thumb" />}
           <label className="a-label">Photo
             <input type="file" accept="image/jpeg,image/png,image/webp" onChange={pickPhoto} />
-            <span className="a-hint">A top-down shot of the plate works best. It is shown in a circle.</span>
+            <span className="a-hint">A top-down shot of the plate works best. It is shown in a circle. Any JPG, PNG or WebP is fine: it is converted to a fast-loading format for you.</span>
           </label>
         </div>
 

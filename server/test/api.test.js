@@ -167,10 +167,24 @@ test('an uploaded photo is kept in the database and served back', async () => {
   const res = await fetch(url + '/api/admin/upload', { method: 'POST', headers: { cookie }, body: form });
   assert.equal(res.status, 201);
   const { url: photo } = await res.json();
-  const served = await fetch(url + photo);
-  assert.equal(served.status, 200);
-  assert.equal(served.headers.get('content-type'), 'image/png');
-  assert.equal(Buffer.from(await served.arrayBuffer()).length, png.length);
+  assert.match(photo, /^\/uploads\/[a-f0-9]{24}\.webp$/, 'a PNG upload is stored as WebP');
+  for (const address of [photo, photo.replace('.webp', '-s.webp')]) {
+    const served = await fetch(url + address);
+    assert.equal(served.status, 200);
+    assert.equal(served.headers.get('content-type'), 'image/webp');
+    assert.equal(Buffer.from(await served.arrayBuffer()).subarray(8, 12).toString(), 'WEBP');
+  }
+  const junk = new FormData();
+  junk.append('image', new Blob([Buffer.from('not a picture')], { type: 'image/jpeg' }), 'x.jpg');
+  assert.equal((await fetch(url + '/api/admin/upload', { method: 'POST', headers: { cookie }, body: junk })).status, 400);
+
+  // The sample menu uses the WebP samples, and an old .jpg address is moved over at start-up.
+  const sample = await Dish.findOne({ image: /^\/uploads\/seed\// });
+  assert.match(sample.image, /\.webp$/);
+  await Dish.updateOne({ _id: sample._id }, { image: sample.image.replace('.webp', '.jpg') });
+  const { modernisePhotos } = await import('../src/services/photos.js');
+  await modernisePhotos();
+  assert.equal((await Dish.findById(sample._id)).image, sample.image);
   assert.equal((await fetch(url + '/uploads/aaaaaaaaaaaaaaaaaaaaaaaa.png')).status, 404);
 });
 

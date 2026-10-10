@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Icon from '../../components/Icon.jsx';
-import { fullName, money, pad2 } from '../../lib/format.js';
+import { fullName, money, pad2, thumb } from '../../lib/format.js';
 import { useTheme } from '../../lib/theme.js';
 
 /** Where a plate sits on the wheel, relative to the one in the centre. */
@@ -148,7 +148,9 @@ export default function Stage({
               aria-label={current ? `Details for ${d.name} ${d.accent}` : `Show ${d.name} ${d.accent}`}
               tabIndex={pos.startsWith('is-far') ? -1 : 0}>
               <span className="c-plate__dish">
-                {d.image && <img src={d.image} alt="" loading={current ? 'eager' : 'lazy'} decoding="async" draggable="false" />}
+                {/* The centre plate and its two neighbours get the full photo, so the next turn is instant; the rest wait as small ones. */}
+                {d.image && <img src={pos.startsWith('is-far') ? thumb(d.image) : d.image} alt="" loading={pos.startsWith('is-far') ? 'lazy' : 'eager'}
+                  fetchpriority={current ? 'high' : 'auto'} decoding="async" draggable="false" />}
               </span>
             </button>
           );
