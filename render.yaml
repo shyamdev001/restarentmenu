@@ -5,8 +5,7 @@ services:
     name: saffron-menu
     runtime: node
     plan: free
-    # Vite is a dev dependency, so it is installed explicitly even though NODE_ENV is production.
-    buildCommand: npm install --prefix server && npm install --prefix client --include=dev && npm run build
+    buildCommand: npm run install:all && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
