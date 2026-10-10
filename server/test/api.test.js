@@ -43,6 +43,12 @@ before(async () => {
   });
   cookie = login.headers.get('set-cookie').split(';')[0];
   codes = (await call('GET', '/admin/table-codes', null, { admin: true })).body.codes;
+
+  // The QR rule is off on a new install. Most tests here are about that rule, so switch it on.
+  const fresh = (await call('GET', '/menu')).body.settings;
+  assert.equal(fresh.requireQr, false, 'a new install takes orders from any link');
+  const { name, tagline, welcome, currency, taxPercent, tables, publicUrl } = (await call('GET', '/admin/settings', null, { admin: true })).body;
+  await call('PUT', '/admin/settings', { name, tagline, welcome, currency, taxPercent, tables, publicUrl, requireQr: true }, { admin: true });
   dish = (await Dish.findOne({ available: true, 'addons.0': { $exists: true } })).toJSON();
 });
 

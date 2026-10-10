@@ -95,5 +95,5 @@ export const settingsSchema = z.object({
   taxPercent: z.coerce.number().min(0).max(50),
   tables: z.coerce.number().int().min(1).max(500),
   publicUrl: z.string().trim().max(200).regex(/^(https?:\/\/[^\s]+)?$/, 'Must start with http:// or https://').default(''),
-  requireQr: z.boolean().default(true)
+  requireQr: z.boolean().default(false)
 });

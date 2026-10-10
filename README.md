@@ -33,7 +33,7 @@ Then open:
 
 | What | Address |
 | --- | --- |
-| Guest menu | Admin → Tables & QR → "Open this table's menu" (the link carries the table's code) |
+| Guest menu, table 5 | http://localhost:5173/?table=5 |
 | Admin panel | http://localhost:5173/admin |
 
 The first start creates the admin account from `server/.env` (default **admin / admin12345**) and a sample menu of 17 dishes. **Change the password** under Admin → Settings.
@@ -60,7 +60,7 @@ To try it on your phone, connect the phone to the same Wi-Fi and open `http://<y
 
 ## Ordering rules
 
-- **QR codes carry a code.** Each table's QR link ends in `&k=…`, a code only the server can make. Orders, calls and the bill are only accepted with it, so nobody can send food to a table by typing its number. To test on your computer, use the "Open this table's menu" link under Admin → Tables & QR. You can switch the rule off under Settings ("Only take orders from a scanned table QR code"); guests then pick their table from a list. **If you printed QR codes before this rule existed, print them again.**
+- **Orders only from the table's QR card (optional, off by default).** Out of the box any link to the menu can order, and a guest without a table number picks one from a list. To lock it down, print the cards from Admin → Tables & QR, then tick "Only take orders from a scanned table QR code" under Admin → Settings. Each card's link ends in `&k=…`, a code only the server can make; orders, calls and the bill are then refused without it, so nobody can send food to a table by typing its number.
 - **No double orders.** A basket carries its own id, so sending it again after a lost connection returns the first order.
 - **Prices are checked.** If a price or an extra changed after the guest filled the basket, the order is refused with an explanation and the menu refreshes.
 - **Orders only move forward:** new → cooking → ready → served. An order can be cancelled until it leaves the kitchen.

@@ -23,7 +23,7 @@ const Feedback = ({ state }) => (
 
 export default function SettingsPage({ settings, reload }) {
   const { name, tagline, welcome, currency, taxPercent, tables, publicUrl, requireQr } = settings;
-  const main = useForm({ name, tagline, welcome, currency, taxPercent, tables, publicUrl, requireQr: requireQr !== false });
+  const main = useForm({ name, tagline, welcome, currency, taxPercent, tables, publicUrl, requireQr: !!requireQr });
   const pass = useForm({ current: '', next: '' });
 
   const saveSettings = main.submit(async (form) => { await api.put('/admin/settings', form); await reload(); }, 'Saved. Guests see the change straight away.');
@@ -45,7 +45,7 @@ export default function SettingsPage({ settings, reload }) {
         <label className="a-check is-wide">
           <input type="checkbox" checked={!!main.form.requireQr} onChange={(e) => main.setForm((f) => ({ ...f, requireQr: e.target.checked }))} />
           <span>Only take orders from a scanned table QR code
-            <span className="a-hint" style={{ display: 'block' }}>Stops orders being sent to a table by someone who just types its number. Turn it off to let guests pick their table from a list.</span>
+            <span className="a-hint" style={{ display: 'block' }}>Off: any link to the menu can order, and guests without a table pick one from a list. On: only the QR cards from Tables &amp; QR can order, so nobody can send food to a table by typing its number. Print the cards before you turn this on.</span>
           </span>
         </label>
         <Feedback state={main.state} />

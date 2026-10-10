@@ -26,7 +26,9 @@ export default function TablesQr({ settings }) {
       )}
       <p className="a-muted a-small a-noprint">
         Change the number of tables under Settings. Print this page, cut the cards and place one on each table.
-        {settings.requireQr !== false && ' Each card carries its own code, so orders are only accepted from a scan of that table\'s card.'}
+        {settings.requireQr
+          ? ' Each card carries its own code, and orders are only accepted from a scan of that table\'s card.'
+          : ' Any link to the menu can order right now. To accept orders only from these cards, turn on "Only take orders from a scanned table QR code" under Settings.'}
       </p>
       <div className="a-qrs">
         {tables.map((n) => (

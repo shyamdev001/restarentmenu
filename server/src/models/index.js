@@ -13,7 +13,7 @@ const settingSchema = new Schema({
   taxPercent: { type: Number, default: 5, min: 0, max: 50 },
   tables: { type: Number, default: 10, min: 1, max: 500 },
   publicUrl: { type: String, default: '', trim: true },
-  requireQr: { type: Boolean, default: true },   // only take orders that come from a scanned table QR code
+  requireQr: { type: Boolean, default: false },  // only take orders that come from a scanned table QR code (off until the owner turns it on)
   orderCounter: { type: Number, default: 100 }
 }, jsonOptions);
 
