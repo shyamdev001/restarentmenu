@@ -30,6 +30,12 @@ export const orderSchema = z.object({
   })).min(1, 'Your order is empty').max(40)
 });
 
+// An order entered by staff from the admin panel. Table 0 is the counter (takeaway, walk-ins).
+export const staffOrderSchema = z.object({
+  table: z.coerce.number().int().min(0).max(500),
+  items: orderSchema.shape.items
+});
+
 export const callSchema = z.object({
   table: z.coerce.number().int().min(1).max(500),
   code: tableCode,

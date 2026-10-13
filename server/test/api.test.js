@@ -111,6 +111,26 @@ test('an order only moves forward', async () => {
   assert.equal((await Order.findById(order.id)).status, 'served');
 });
 
+test('staff can enter an order themselves, including for the counter', async () => {
+  // No QR code is needed from the admin panel, even while the QR rule is on.
+  const atTable = await call('POST', '/admin/orders', { table: 7, items: [{ dishId: dish.id, qty: 3 }] }, { admin: true });
+  assert.equal(atTable.status, 201);
+  assert.equal(atTable.body.source, 'staff');
+  assert.equal(atTable.body.subtotal, dish.price * 3);
+
+  const counter = await call('POST', '/admin/orders', { table: 0, items: [{ dishId: dish.id, qty: 1 }] }, { admin: true });
+  assert.equal(counter.status, 201);
+  assert.equal(counter.body.table, 0);
+
+  assert.equal((await call('POST', '/admin/orders', { table: 3, items: [{ dishId: dish.id, qty: 1 }] })).status, 401, 'only signed-in staff');
+  assert.equal((await call('POST', '/admin/orders', { table: 999, items: [{ dishId: dish.id, qty: 1 }] }, { admin: true })).status, 400);
+  assert.equal((await call('POST', '/orders', { table: 0, code: codes[1], items: [{ dishId: dish.id, qty: 1 }] })).status, 400, 'guests cannot order to the counter');
+
+  // A staff order shows on the table's bill like any other.
+  const bill = await call('GET', `/tables/7/bill?code=${codes[7]}`);
+  assert.equal(bill.body.length, 1);
+});
+
 test('many phones calling at once make one call', async () => {
   const results = await Promise.all([1, 2, 3, 4, 5, 6].map(() => call('POST', '/calls', { table: 6, code: codes[6], type: 'waiter' })));
   assert.ok(results.every((r) => r.status === 201));

@@ -8,6 +8,8 @@ import { fullName } from '../../lib/format.js';
  */
 const PLACES = [
   { label: 'Orders board', where: 'Orders', to: 'orders', words: 'new cooking ready served kitchen live cancel order' },
+  { label: 'Enter an order yourself', where: 'Orders', to: 'orders', extra: { newOrder: true }, words: 'manual new order takeaway counter walk-in phone parcel staff' },
+  { label: 'Spoken order call-outs', where: 'Bell, top right', run: 'bell', words: 'voice speak announce read aloud kitchen call out' },
   { label: 'Mark a table as paid', where: 'Orders', to: 'orders', words: 'bill paid settle open tables close' },
   { label: 'Tables asking for a server or the bill', where: 'Orders', to: 'orders', words: 'call waiter bill request' },
   { label: 'Sales reports', where: 'Reports', to: 'reports', words: 'revenue sales income best sellers daily monthly analytics profit data' },

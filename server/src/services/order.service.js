@@ -50,11 +50,18 @@ export async function moveOrder(id, next) {
  *   expected   the subtotal the guest was shown. If the menu has changed since,
  *              the order is refused so they can look again before paying more.
  *
+ *   staff      true when a signed-in member of staff entered it from the admin
+ *              panel: no QR code is needed, and table 0 (the counter) is allowed.
+ *
  * Returns { order, created }.
  */
-export async function createOrder({ table, code, items, clientKey, expected }) {
+export async function createOrder({ table, code, items, clientKey, expected }, { staff = false } = {}) {
   const settings = await getSettings();
-  await assertTable(table, code, settings);
+  if (staff) {
+    if (table > settings.tables) throw ApiError.badRequest(`Table ${table} does not exist.`);
+  } else {
+    await assertTable(table, code, settings);
+  }
 
   if (clientKey) {
     const earlier = await Order.findOne({ clientKey });
@@ -100,6 +107,7 @@ export async function createOrder({ table, code, items, clientKey, expected }) {
       taxPercent: settings.taxPercent, tax,
       total: Math.round((subtotal + tax) * 100) / 100,
       etaMin,
+      source: staff ? 'staff' : 'guest',
       ...(clientKey ? { clientKey } : {})
     });
     return { order, created: true };

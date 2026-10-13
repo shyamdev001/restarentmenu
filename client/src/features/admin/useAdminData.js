@@ -5,7 +5,8 @@ import { TZ } from '../../lib/format.js';
 
 /**
  * Everything the admin panel shows, kept live over the socket.
- * onEvent('order' | 'call', payload) fires for each new order and each new table call.
+ * onEvent('order' | 'call' | 'ready', payload) fires for each new order, each new table call,
+ * and each order the kitchen marks ready.
  */
 export function useAdminData(onEvent) {
   const [menu, setMenu] = useState({ categories: [], dishes: [] });
@@ -16,6 +17,7 @@ export function useAdminData(onEvent) {
   const [error, setError] = useState('');
   const [connected, setConnected] = useState(false);
   const [openTables, setOpenTables] = useState([]);
+  const statusOf = useRef({});  // last status seen per order, to notice the moment one becomes ready
   const known = useRef(null); // ids already shown, so a reconnect can tell what arrived while away
   const mounted = useRef(true);
   const event = useRef(onEvent);
@@ -29,6 +31,7 @@ export function useAdminData(onEvent) {
   const loadOrders = useCallback(() => guard(Promise.all([api.get('/admin/orders'), api.get('/admin/calls')])
     .then(([o, c]) => {
       setOrders(o); setCalls(c);
+      o.forEach((order) => { statusOf.current[order.id] = order.status; });
       // Anything new since the last look arrived while this screen was asleep or offline: announce it now.
       if (known.current) {
         o.filter((order) => order.status === 'new' && !known.current.has(order.id)).reverse().forEach((order) => event.current?.('order', order));
@@ -46,8 +49,13 @@ export function useAdminData(onEvent) {
     socket.on('connect', () => { setConnected(true); loadOrders(); loadStats(); loadTables(); });
     socket.on('tables:update', loadTables);
     socket.on('disconnect', () => setConnected(false));
-    socket.on('order:new', (order) => { setOrders((list) => [order, ...list.filter((o) => o.id !== order.id)]); loadStats(); known.current?.add(order.id); event.current?.('order', order); });
-    socket.on('order:update', (order) => { setOrders((list) => list.map((o) => (o.id === order.id ? order : o))); loadStats(); });
+    socket.on('order:new', (order) => { setOrders((list) => [order, ...list.filter((o) => o.id !== order.id)]); loadStats(); known.current?.add(order.id); statusOf.current[order.id] = order.status; event.current?.('order', order); });
+    socket.on('order:update', (order) => {
+      setOrders((list) => list.map((o) => (o.id === order.id ? order : o)));
+      loadStats();
+      if (order.status === 'ready' && statusOf.current[order.id] !== 'ready') event.current?.('ready', order);
+      statusOf.current[order.id] = order.status;
+    });
     socket.on('call:new', (call) => { setCalls((list) => [...list.filter((c) => c.id !== call.id), call]); known.current?.add(call.id); event.current?.('call', call); });
     socket.on('call:update', (call) => setCalls((list) => list.filter((c) => c.id !== call.id)));
     socket.on('menu:update', loadMenu);

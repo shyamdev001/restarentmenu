@@ -86,7 +86,7 @@ export async function openTables() {
 /** The table has paid: close its orders so the next guests start clean. */
 export async function settleTable(table) {
   const active = await Order.countDocuments({ table, settled: false, status: { $in: ['new', 'cooking', 'ready'] } });
-  if (active) throw ApiError.conflict(`Table ${table} still has an order in the kitchen.`);
+  if (active) throw ApiError.conflict(`${table === 0 ? 'The counter' : 'Table ' + table} still has an order in the kitchen.`);
   const result = await Order.updateMany({ table, settled: false }, { settled: true });
   return result.modifiedCount;
 }

@@ -52,7 +52,8 @@ export const ORDER_STATUSES = ['new', 'cooking', 'ready', 'served', 'cancelled']
 const orderSchema = new Schema({
   publicId: { type: String, required: true, unique: true }, // unguessable id handed to the customer
   number: { type: Number, required: true },
-  table: { type: Number, required: true, min: 1 },
+  table: { type: Number, required: true, min: 0 },   // 0 is the counter: takeaway and walk-ins entered by staff
+  source: { type: String, enum: ['guest', 'staff'], default: 'guest' }, // who entered it
   items: [{
     _id: false,
     dish: { type: Schema.Types.ObjectId, ref: 'Dish' },

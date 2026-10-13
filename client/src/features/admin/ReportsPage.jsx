@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api.js';
 import Icon from '../../components/Icon.jsx';
-import { TZ, money } from '../../lib/format.js';
+import { TZ, money, tableName } from '../../lib/format.js';
 
 const iso = (date) => new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
 const daysAgo = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return iso(d); };
@@ -236,7 +236,7 @@ export default function ReportsPage({ settings, setError }) {
                       {busiest && <li><span>Busiest hour</span><b>{hourLabel(busiest.hour)} to {hourLabel((busiest.hour + 1) % 24)}</b><small>{plural(busiest.orders, 'order')}</small></li>}
                       {sellers[0] && <li><span>Most ordered</span><b>{sellers[0].name}</b><small>{plural(sellers[0].qty, 'plate')}</small></li>}
                       {earners[0] && <li><span>Earns the most</span><b>{earners[0].name}</b><small>{rupees(earners[0].revenue)} · {earners[0].share}% of sales</small></li>}
-                      {bestTable && <li><span>Best table</span><b>Table {bestTable.table}</b><small>{rupees(bestTable.revenue)} from {plural(bestTable.orders, 'order')}</small></li>}
+                      {bestTable && <li><span>Best table</span><b>{tableName(bestTable.table)}</b><small>{rupees(bestTable.revenue)} from {plural(bestTable.orders, 'order')}</small></li>}
                     </ul>
                   </section>
 
@@ -360,7 +360,7 @@ export default function ReportsPage({ settings, setError }) {
                         <thead><tr><th>Table</th><th>Orders</th><th>Plates</th><th>Average bill</th><th>Sales</th></tr></thead>
                         <tbody>
                           {report.byTable.map((row) => (
-                            <tr key={row.table}><td>Table {row.table}</td><td>{count(row.orders)}</td><td>{count(row.plates)}</td><td>{rupees(Math.round(row.average))}</td><td>{rupees(row.revenue)}</td></tr>
+                            <tr key={row.table}><td>{tableName(row.table)}</td><td>{count(row.orders)}</td><td>{count(row.plates)}</td><td>{rupees(Math.round(row.average))}</td><td>{rupees(row.revenue)}</td></tr>
                           ))}
                         </tbody>
                       </table>

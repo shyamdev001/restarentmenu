@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../lib/api.js';
 import Icon from '../../components/Icon.jsx';
 import Notices, { useNotices } from '../../components/Notices.jsx';
-import { alertsState, askForAlerts, enablePush, isMuted, onSoundReady, play, setBaseTitle, setMuted, soundReady } from '../../lib/notify.js';
-import { money, timeAgo } from '../../lib/format.js';
+import { alertsState, askForAlerts, buzz, enablePush, isMuted, onSoundReady, play, setBaseTitle, setMuted, soundReady } from '../../lib/notify.js';
+import { money, tableName, timeAgo } from '../../lib/format.js';
+import { canSpeak, setVoiceOn, voiceOn } from '../../lib/speech.js';
+import Callout from './Callout.jsx';
 import { useTheme } from '../../lib/theme.js';
 import { useAdminData } from './useAdminData.js';
 import { scrollPageToTop, useSmoothScroll } from '../../lib/useSmoothScroll.js';
@@ -45,19 +47,42 @@ function Panel({ user, onLogout }) {
   const [muted, setMute] = useState(isMuted);
   const [alerts, setAlerts] = useState(alertsState);
   const [currency, setCurrency] = useState('');
+  const [calling, setCalling] = useState([]);     // call-outs waiting to take the screen, first one showing
+  const [callouts, setCallouts] = useState(() => { try { return localStorage.getItem('sm.callouts') !== '0'; } catch { return true; } });
+  const [voice, setVoice] = useState(voiceOn);
 
   // Every new order and table call: a notice, a sound, and a line in the bell's list.
   const onEvent = useCallback((kind, payload) => {
-    const plates = kind === 'order' ? payload.items.reduce((n, i) => n + i.qty, 0) : 0;
+    const plates = kind === 'call' ? 0 : payload.items.reduce((n, i) => n + i.qty, 0);
+    const place = tableName(payload.table);
     const notice = kind === 'order'
-      ? { icon: 'receipt', title: `New order · Table ${payload.table}`, sound: 'order', tag: 'order-' + payload.id,
+      ? { icon: 'receipt', title: `New order · ${place}`, sound: 'order', tag: 'order-' + payload.id,
           body: `#${payload.number} · ${plates} ${plates === 1 ? 'plate' : 'plates'} · ${money(payload.total, currency)}` }
-      : { icon: payload.type === 'bill' ? 'receipt' : 'bell', sound: 'call', tag: 'call-' + payload.id,
-          title: `Table ${payload.table} ${payload.type === 'bill' ? 'wants the bill' : 'needs a server'}`, body: 'Tap to open the orders board.' };
-    notify({ ...notice, important: true, vibrate: true, ttl: 12000, action: () => setTab('orders') });
+      : kind === 'ready'
+        ? { icon: 'bell', title: `Ready to serve · ${place}`, sound: 'good', tag: 'ready-' + payload.id,
+            body: `#${payload.number} · ${plates} ${plates === 1 ? 'plate' : 'plates'} to carry out` }
+        : { icon: payload.type === 'bill' ? 'receipt' : 'bell', sound: 'call', tag: 'call-' + payload.id,
+            title: `${place} ${payload.type === 'bill' ? 'wants the bill' : 'needs a server'}`, body: 'Tap to open the orders board.' };
+    // An order this screen has just entered itself is not called out back to it.
+    // Only one order per send is skipped, so a colleague's order entered moments later is still announced.
+    const own = kind === 'order' && payload.source === 'staff' && sending.current > 0;
+    if (own) { sending.current -= 1; notice.sound = undefined; }
+    // The call-out takes the screen and reads the order aloud; several arriving together wait their turn.
+    const callOut = calloutsOn.current && !own;
+    if (callOut) {
+      setCalling((list) => [...list, { key: notice.tag + Date.now(), kind: kind === 'order' ? 'new' : kind, table: payload.table, number: payload.number, items: payload.items, type: payload.type }].slice(-6));
+    }
+    // With the call-out on screen a card as well would only repeat it: just ring. In the background, the card and system alert still fire.
+    if (callOut && !document.hidden) { if (notice.sound) play(notice.sound); buzz(); }
+    else notify({ ...notice, important: true, vibrate: true, ttl: 12000, action: () => setTab('orders') });
     setLog((list) => [{ id: notice.tag, icon: notice.icon, title: notice.title, body: notice.body, at: Date.now() }, ...list].slice(0, 20));
     setUnread((n) => n + 1);
   }, [notify, currency]);
+
+  const sending = useRef(0);   // orders this screen has just sent and not yet heard back about
+  const calloutsOn = useRef(callouts);
+  calloutsOn.current = callouts;
+  const nextCall = useCallback(() => setCalling((list) => list.slice(1)), []);
 
   const data = useAdminData(onEvent);
   const waiting = data.orders.filter((o) => o.status === 'new').length + data.calls.length;
@@ -94,6 +119,8 @@ function Panel({ user, onLogout }) {
 
   const toggleBell = () => { setBellOpen((open) => !open); setUnread(0); };
   const enableAlerts = async () => setAlerts(await askForAlerts());
+  const toggleCallouts = () => { const on = !callouts; setCallouts(on); if (!on) setCalling([]); try { localStorage.setItem('sm.callouts', on ? '1' : '0'); } catch { /* private mode */ } };
+  const toggleVoice = () => { setVoiceOn(!voice); setVoice(!voice); };
   const toggleMute = () => { setMuted(!muted); setMute(!muted); if (muted) play('soft'); };
 
   // One place to move between sections: also closes the phone's "More" sheet and carries any target (a dish to open).
@@ -165,6 +192,16 @@ function Panel({ user, onLogout }) {
                   <span><Icon name="sound" size={16} />Sound and reminders</span>
                   <button className="a-switch" role="switch" aria-checked={!muted} aria-label="Sound and reminders" onClick={toggleMute} />
                 </div>
+                <div className="a-pop__row">
+                  <span><Icon name="receipt" size={16} />Show each order full-screen</span>
+                  <button className="a-switch" role="switch" aria-checked={callouts} aria-label="Show each order full-screen" onClick={toggleCallouts} />
+                </div>
+                {callouts && canSpeak() && (
+                  <div className="a-pop__row">
+                    <span><Icon name="sound" size={16} />Read it aloud</span>
+                    <button className="a-switch" role="switch" aria-checked={voice} aria-label="Read each order aloud" onClick={toggleVoice} />
+                  </div>
+                )}
                 {alerts === 'default' && (
                   <button className="a-btn is-gold" onClick={enableAlerts}>Send alerts to this device, even when the panel is closed</button>
                 )}
@@ -179,7 +216,7 @@ function Panel({ user, onLogout }) {
           {silent && !muted && <p className="a-soundhint" role="status"><Icon name="sound" size={16} />Tap anywhere once so this screen can ring for new orders.</p>}
           {data.error && <p className="a-error" role="alert">{data.error} <button className="a-btn" onClick={() => data.setError('')}>Dismiss</button></p>}
           {tab === 'home' && <HomePage {...data} alerts={alerts} go={go} onAlerts={enableAlerts} />}
-          {tab === 'orders' && <OrdersBoard {...data} />}
+          {tab === 'orders' && <OrdersBoard {...data} open={target} onOpened={() => setTarget(null)} onSending={() => { sending.current += 1; setTimeout(() => { sending.current = Math.max(0, sending.current - 1); }, 10000); }} />}
           {tab === 'history' && <HistoryPage settings={data.settings} setError={data.setError} />}
           {tab === 'reports' && <ReportsPage settings={data.settings} setError={data.setError} />}
           {tab === 'menu' && <MenuManager {...data} open={target} onOpened={() => setTarget(null)} />}
@@ -206,6 +243,7 @@ function Panel({ user, onLogout }) {
         </>
       )}
     </div>
+    {calling[0] && <Callout key={calling[0].key} call={calling[0]} onDone={nextCall} />}
     <Notices items={notices} onDismiss={dismissNotice} />
     </>
   );

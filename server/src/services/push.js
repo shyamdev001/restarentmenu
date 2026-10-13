@@ -63,6 +63,8 @@ async function send(filter, message) {
   }
 }
 
+const tableName = (n) => (n === 0 ? 'Counter' : `Table ${n}`);
+
 const GUEST_NEWS = {
   cooking: (o) => ['Your order is on the fire', `Order #${o.number} · about ${o.etaMin} minutes to your table.`],
   ready: (o) => ['On its way to your table', `Order #${o.number} has just left the kitchen.`],
@@ -74,7 +76,7 @@ export const push = {
   orderCreated(order) {
     const plates = order.items.reduce((n, i) => n + i.qty, 0);
     send({ admin: true }, {
-      title: `New order · Table ${order.table}`,
+      title: `New order · ${tableName(order.table)}`,
       body: `#${order.number} · ${plates} ${plates === 1 ? 'plate' : 'plates'}`,
       tag: 'order-' + order.id, url: '/admin'
     });

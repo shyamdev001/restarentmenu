@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api.js';
-import { TZ, money } from '../../lib/format.js';
+import { TZ, money, tableName } from '../../lib/format.js';
 
 const zone = '?tz=' + encodeURIComponent(TZ);
 
@@ -54,7 +54,7 @@ export default function HistoryPage({ settings, setError }) {
                       <tr key={o.id}>
                         <td>#{o.number}</td>
                         <td className="a-muted">{clock(o.createdAt)}</td>
-                        <td>{o.table}</td>
+                        <td>{tableName(o.table)}</td>
                         <td>{o.items.map((i) => `${i.qty}× ${i.name}`).join(', ')}</td>
                         <td>{money(o.total, currency)}</td>
                         <td className={o.status === 'cancelled' ? 'a-error' : 'a-ok'}>{o.status}</td>

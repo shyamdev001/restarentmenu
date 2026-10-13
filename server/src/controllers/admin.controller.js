@@ -1,7 +1,7 @@
 import QRCode from 'qrcode';
 import { Category, Dish, Order, ServiceCall, Setting, getSettings } from '../models/index.js';
 import { ApiError, asyncHandler } from '../utils/ApiError.js';
-import { moveOrder, toPublicOrder } from '../services/order.service.js';
+import { createOrder, moveOrder, toPublicOrder } from '../services/order.service.js';
 import { openTables, settleTable, tableCode } from '../services/tables.js';
 import { buildReport, exportCsv, ordersIn, rangeOf, todayIn, zoneOf } from '../services/reports.js';
 import { realtime } from '../services/socket.js';
@@ -14,6 +14,14 @@ const found = (doc, what) => { if (!doc) throw ApiError.notFound(`${what} not fo
 export const listOrders = asyncHandler(async (req, res) => {
   const filter = req.query.active === '1' ? { status: { $in: ['new', 'cooking', 'ready'] } } : {};
   res.json(await Order.find(filter).sort({ createdAt: -1 }).limit(200));
+});
+
+/** POST /orders : staff enter an order themselves, for a guest who will not scan, a phone order or a takeaway. */
+export const createStaffOrder = asyncHandler(async (req, res) => {
+  const { order } = await createOrder(req.body, { staff: true });
+  realtime.orderCreated(order.toJSON());
+  push.orderCreated(order.toJSON());
+  res.status(201).json(order);
 });
 
 export const updateOrderStatus = asyncHandler(async (req, res) => {
@@ -32,7 +40,7 @@ export const listOpenTables = asyncHandler(async (_req, res) => res.json(await o
 /** POST /tables/:table/settle : the table has paid. Its guests' phones start a fresh visit. */
 export const settle = asyncHandler(async (req, res) => {
   const table = Number.parseInt(req.params.table, 10);
-  if (!Number.isInteger(table) || table < 1) throw ApiError.badRequest('Unknown table.');
+  if (!Number.isInteger(table) || table < 0) throw ApiError.badRequest('Unknown table.');
   const closed = await settleTable(table);
   realtime.tableSettled(table);
   res.json({ ok: true, closed });

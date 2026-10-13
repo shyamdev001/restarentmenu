@@ -7,6 +7,9 @@ export const TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 /** The small version of a dish photo, for lists and anything shown at thumbnail size. */
 export const thumb = (url) => (/^\/uploads\/.+\.webp$/.test(url || '') && !url.endsWith('-s.webp') ? url.replace(/\.webp$/, '-s.webp') : url);
 
+/** How a table is named to staff. Table 0 is the counter: takeaway and walk-ins entered by staff. */
+export const tableName = (n) => (Number(n) === 0 ? 'Counter' : `Table ${n}`);
+
 export const pad2 = (n) => String(n).padStart(2, '0');
 
 export const fullName = (dish) => `${dish.name} ${dish.accent || ''}`.trim();

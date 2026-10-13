@@ -29,6 +29,7 @@ const a = Router();
 a.use(requireAdmin);
 
 a.get('/orders', admin.listOrders);
+a.post('/orders', validate(s.staffOrderSchema), admin.createStaffOrder);
 a.patch('/orders/:id', validate(s.statusSchema), admin.updateOrderStatus);
 a.get('/stats', admin.getStats);
 a.get('/reports', admin.report);

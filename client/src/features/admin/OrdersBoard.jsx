@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { api } from '../../lib/api.js';
 import Icon from '../../components/Icon.jsx';
 import { useConfirm } from '../../components/Confirm.jsx';
-import { money, timeAgo } from '../../lib/format.js';
+import { money, tableName, timeAgo } from '../../lib/format.js';
+import NewOrder from './NewOrder.jsx';
 
 const COLUMNS = [
   { status: 'new', title: 'New', next: 'cooking', action: 'Start cooking' },
@@ -14,8 +15,8 @@ function OrderCard({ order, column, currency, onStatus }) {
   return (
     <article className={'a-card a-order' + (order.status === 'new' ? ' is-new' : '')}>
       <div className="a-order__top">
-        <b>Table {order.table}</b>
-        <span className="a-muted a-small">#{order.number} · {timeAgo(order.createdAt)}</span>
+        <b>{tableName(order.table)}</b>
+        <span className="a-muted a-small">#{order.number} · {timeAgo(order.createdAt)}{order.source === 'staff' ? ' · by staff' : ''}</span>
       </div>
       <ul>
         {order.items.map((item, i) => {
@@ -38,7 +39,10 @@ function OrderCard({ order, column, currency, onStatus }) {
   );
 }
 
-export default function OrdersBoard({ orders, calls, stats, settings, setError, openTables, loadTables }) {
+export default function OrdersBoard({ orders, calls, stats, settings, setError, openTables, loadTables, menu, open, onOpened, onSending }) {
+  const [entering, setEntering] = useState(false);
+  // Arriving from a shortcut or the search box with "enter an order": open the form straight away.
+  useEffect(() => { if (open?.newOrder) { setEntering(true); onOpened?.(); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 30000); return () => clearInterval(t); }, []);
 
@@ -47,14 +51,14 @@ export default function OrdersBoard({ orders, calls, stats, settings, setError, 
   const setStatus = async (order, status) => {
     if (status === 'cancelled' && !(await confirm({
       title: `Cancel order #${order.number}?`,
-      body: `Table ${order.table} will be told their order was cancelled. This cannot be undone.`,
+      body: order.table === 0 ? 'This cannot be undone.' : `Table ${order.table} will be told their order was cancelled. This cannot be undone.`,
       action: 'Cancel the order', cancel: 'Keep the order'
     }))) return;
     api.patch(`/admin/orders/${order.id}`, { status }).catch((e) => setError(e.message));
   };
   const markPaid = async (t) => {
     const yes = await confirm({
-      title: `Table ${t.table} has paid?`,
+      title: `${tableName(t.table)} has paid?`,
       body: `This closes ${t.orders === 1 ? 'its order' : `its ${t.orders} orders`} (${money(t.total, currency)}). The guests' phones start a fresh visit.`,
       action: 'Mark as paid', cancel: 'Not yet'
     });
@@ -66,6 +70,11 @@ export default function OrdersBoard({ orders, calls, stats, settings, setError, 
   return (
     <>
       {dialog}
+      {entering && <NewOrder menu={menu} settings={settings} onClose={() => setEntering(false)} onSent={() => setEntering(false)} onSending={onSending} />}
+      <div className="a-title">
+        <h1>Live <em>orders</em></h1>
+        <button className="a-btn is-gold" onClick={() => setEntering(true)}><Icon name="plus" size={16} />New order</button>
+      </div>
       <div className="a-stats">
         <div className="a-stat"><b>{stats.active}</b><span>Active orders</span></div>
         <div className="a-stat"><b>{stats.orders}</b><span>Orders today</span></div>
@@ -93,7 +102,7 @@ export default function OrdersBoard({ orders, calls, stats, settings, setError, 
           <div className="a-tables">
             {openTables.map((t) => (
               <div key={t.table} className="a-opentable">
-                <span><b>Table {t.table}</b><small>{t.orders} {t.orders === 1 ? 'order' : 'orders'}{t.active ? ` · ${t.active} in the kitchen` : ' · all served'}</small></span>
+                <span><b>{tableName(t.table)}</b><small>{t.orders} {t.orders === 1 ? 'order' : 'orders'}{t.active ? ` · ${t.active} in the kitchen` : ' · all served'}</small></span>
                 <strong>{money(t.total, currency)}</strong>
                 <button className="a-btn" disabled={t.active > 0} onClick={() => markPaid(t)}>Mark paid</button>
               </div>

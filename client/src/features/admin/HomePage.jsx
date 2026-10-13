@@ -1,5 +1,5 @@
 import Icon from '../../components/Icon.jsx';
-import { money } from '../../lib/format.js';
+import { money, tableName } from '../../lib/format.js';
 
 function greeting() {
   const h = new Date().getHours();
@@ -41,7 +41,7 @@ export default function HomePage({ orders, calls, stats, openTables, menu, setti
     calls.length > 0 && { icon: 'bell', urgent: true, title: `${plural(calls.length, 'table')} asking for you`, hint: calls.map((c) => `Table ${c.table}${c.type === 'bill' ? ' (bill)' : ''}`).join(', '), action: 'See calls', to: 'orders' },
     ready > 0 && { icon: 'check', title: `${plural(ready, 'order')} ready to carry out`, action: 'Open orders', to: 'orders' },
     cooking > 0 && { icon: 'flame', title: `${plural(cooking, 'order')} cooking`, action: 'Open orders', to: 'orders' },
-    toSettle.length > 0 && { icon: 'receipt', title: `${plural(toSettle.length, 'table')} finished and not marked paid`, hint: toSettle.map((t) => `Table ${t.table} · ${money(t.total, currency)}`).join(', '), action: 'Mark paid', to: 'orders' }
+    toSettle.length > 0 && { icon: 'receipt', title: `${plural(toSettle.length, 'table')} finished and not marked paid`, hint: toSettle.map((t) => `${tableName(t.table)} · ${money(t.total, currency)}`).join(', '), action: 'Mark paid', to: 'orders' }
   ].filter(Boolean);
 
   // Things that are not finished setting up. Each disappears once it is done.
@@ -54,6 +54,7 @@ export default function HomePage({ orders, calls, stats, openTables, menu, setti
   ].filter(Boolean);
 
   const shortcuts = [
+    { icon: 'receipt', title: 'Enter an order yourself', hint: 'For a takeaway, a phone order or a guest who will not scan', to: 'orders', extra: { newOrder: true } },
     { icon: 'plus', title: 'Add a dish', hint: 'Name, price, photo and extras', to: 'menu', extra: { newDish: true } },
     { icon: 'dish', title: 'Mark a dish sold out', hint: soldOut.length ? `${plural(soldOut.length, 'dish', 'dishes')} sold out right now` : 'One switch, guests see it at once', to: 'menu' },
     { icon: 'qr', title: 'Print table QR codes', hint: `${plural(settings.tables, 'table')} set up`, to: 'tables' },

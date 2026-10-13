@@ -67,6 +67,8 @@ Sections are listed down the side on a laptop and along the bottom on a phone (t
 - **No double orders.** A basket carries its own id, so sending it again after a lost connection returns the first order.
 - **Prices are checked.** If a price or an extra changed after the guest filled the basket, the order is refused with an explanation and the menu refreshes.
 - **Orders only move forward:** new → cooking → ready → served. An order can be cancelled until it leaves the kitchen.
+- **Staff can enter an order.** Orders → **New order**: pick a table or the **Counter** (takeaway, walk-ins, phone orders), tap the dishes, choose spice and extras, and send. It reaches the kitchen like any other order and needs no QR code.
+- **Orders are called out.** Each new order, each order the kitchen marks ready, and each table call takes over the admin screen and is read aloud, one dish at a time, with the line being read lit up. It uses the voice built into the browser, so it is free and works offline. Switch the full-screen call-out or the voice off under the bell.
 - **One bill per table.** The guest's bill shows everything the table ordered, from every phone. When the table has paid, tap **Mark paid** under Orders → Open tables; the guests' phones then start a fresh visit.
 - **History.** Admin → History lists every day of the last 60 with orders, with that day's orders and sales.
 - **Photos** uploaded in the admin are converted to WebP (a much smaller format) in two sizes, a large one for the plate and a small one for lists, and stored in the database so they survive a redeploy. Any JPG, PNG or WebP can be uploaded. Older photos are converted automatically the next time the server starts.
