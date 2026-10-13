@@ -4,6 +4,7 @@ import { ApiError, asyncHandler } from '../utils/ApiError.js';
 import { createOrder, moveOrder, toPublicOrder } from '../services/order.service.js';
 import { openTables, settleTable, tableCode } from '../services/tables.js';
 import { buildReport, exportCsv, ordersIn, rangeOf, todayIn, zoneOf } from '../services/reports.js';
+import { gameOf, saveGame } from '../services/waiting.js';
 import { realtime } from '../services/socket.js';
 import { push, saveSubscription } from '../services/push.js';
 import { removePhoto, savePhoto } from '../services/photos.js';
@@ -188,7 +189,17 @@ export const uploadDishImage = asyncHandler(async (req, res) => {
 });
 
 /* --------------------------------- Settings --------------------------------- */
-export const readSettings = asyncHandler(async (_req, res) => res.json(await getSettings()));
+export const readSettings = asyncHandler(async (_req, res) => {
+  const settings = await getSettings();
+  res.json({ ...settings.toJSON(), game: gameOf(settings) });
+});
+
+/** PUT /settings/game : switch the wheel on or off and set its prizes. Guests see the change at once. */
+export const updateGame = asyncHandler(async (req, res) => {
+  const game = await saveGame(req.body);
+  realtime.menuChanged();
+  res.json(game);
+});
 
 export const updateSettings = asyncHandler(async (req, res) => {
   const settings = await Setting.findOneAndUpdate({ key: 'main' }, req.body, { new: true, upsert: true, runValidators: true });

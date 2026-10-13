@@ -173,6 +173,44 @@ test('a table left unpaid closes itself after three quiet hours', async () => {
   assert.equal((await Order.findById(order.id)).settled, true, 'four hours on, the table has been closed');
 });
 
+test('the wheel gives one spin per table, and a meal is rated once after it is served', async () => {
+  const a = await call('POST', '/orders', basket(11));
+  const b = await call('POST', '/orders', basket(11));   // a second phone at the same table
+  assert.equal((await call('POST', `/orders/${a.body.id}/spin`)).status, 403, 'the wheel is off until the owner switches it on');
+
+  const prizes = [{ label: 'Free chai', weight: 1, win: true }, { label: 'Not this time', weight: 3, win: false }];
+  assert.equal((await call('PUT', '/admin/settings/game', { on: true, prizes: [prizes[0]] }, { admin: true })).status, 400, 'needs two segments');
+  assert.equal((await call('PUT', '/admin/settings/game', { on: true, prizes }, { admin: true })).status, 200);
+
+  const game = (await call('GET', '/menu')).body.settings.game;
+  assert.equal(game.on, true);
+  assert.deepEqual(game.prizes.map((p) => Object.keys(p).sort()), [['label', 'win'], ['label', 'win']], 'the odds are not sent to phones');
+
+  const both = await Promise.all([call('POST', `/orders/${a.body.id}/spin`), call('POST', `/orders/${b.body.id}/spin`)]);
+  assert.deepEqual(both.map((r) => r.status).sort(), [200, 409], 'two phones tapping together: only one spin');
+  const won = both.find((r) => r.status === 200).body;
+  assert.equal(won.order.prize.label, prizes[won.index].label);
+  assert.equal((await call('POST', `/orders/${a.body.id}/spin`)).status, 409);
+
+  // The order behind another one knows it is second in line.
+  const mine = await call('GET', `/orders?ids=${a.body.id},${b.body.id}`);
+  assert.ok(mine.body[1].ahead > mine.body[0].ahead);
+
+  assert.equal((await call('POST', `/orders/${a.body.id}/rating`, { stars: 5 })).status, 409, 'not before it is served');
+  const order = await Order.findOne({ publicId: a.body.id });
+  for (const status of ['cooking', 'ready', 'served']) await call('PATCH', `/admin/orders/${order.id}`, { status }, { admin: true });
+  assert.equal((await call('POST', `/orders/${a.body.id}/rating`, { stars: 9 })).status, 400);
+  const rated = await call('POST', `/orders/${a.body.id}/rating`, { stars: 4, comment: 'Lovely biryani' });
+  assert.equal(rated.status, 200);
+  assert.equal(rated.body.stars, 4);
+  assert.equal((await call('POST', `/orders/${a.body.id}/rating`, { stars: 1 })).status, 409, 'only once');
+
+  // Saving the ordinary settings must not wipe the wheel.
+  const { name, tagline, welcome, currency, taxPercent, tables, publicUrl } = (await call('GET', '/admin/settings', null, { admin: true })).body;
+  await call('PUT', '/admin/settings', { name, tagline, welcome, currency, taxPercent, tables, publicUrl, requireQr: true }, { admin: true });
+  assert.equal((await call('GET', '/menu')).body.settings.game.on, true);
+});
+
 test('categories are reordered in one step', async () => {
   const before = (await call('GET', '/menu')).body.categories.map((c) => c.id);
   const reversed = before.slice().reverse();
@@ -244,6 +282,9 @@ test('reports add up, in the time zone of the restaurant', async () => {
   assert.equal(report.kitchen.timed, timed, 'orders moved through the board are timed');
   assert.ok(report.kitchen.total >= 0);
   assert.equal(report.calls.waiter, await ServiceCall.countDocuments({ type: 'waiter' }));
+  assert.equal(report.ratings.count, 1);
+  assert.equal(report.ratings.average, 4);
+  assert.equal(report.ratings.notes[0].comment, 'Lovely biryani');
 
   for (const kind of ['dishes', 'days']) {
     const file = await fetch(url + `/api/admin/reports/export?kind=${kind}&from=${today}&to=${today}&tz=${zone}`, { headers: { cookie } });

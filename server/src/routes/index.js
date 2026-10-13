@@ -13,6 +13,8 @@ router.get('/orders', pub.getOrders);
 router.post('/orders', publicWriteLimiter, validate(s.orderSchema), pub.placeOrder);
 router.post('/calls', publicWriteLimiter, validate(s.callSchema), pub.createCall);
 router.get('/tables/:table/bill', pub.tableBill);
+router.post('/orders/:id/spin', publicWriteLimiter, pub.spinWheel);
+router.post('/orders/:id/rating', publicWriteLimiter, validate(s.ratingSchema), pub.rateOrder);
 
 router.get('/push/key', pub.pushKey);
 router.post('/push/subscribe', pushLimiter, validate(s.pushGuestSchema), pub.pushSubscribe);
@@ -58,6 +60,7 @@ a.post('/upload', uploadImage, admin.uploadDishImage);
 a.post('/push/subscribe', validate(s.pushAdminSchema), admin.pushSubscribe);
 
 a.get('/settings', admin.readSettings);
+a.put('/settings/game', validate(s.gameSchema), admin.updateGame);
 a.put('/settings', validate(s.settingsSchema), admin.updateSettings);
 a.get('/qr/:table', admin.tableQr);
 

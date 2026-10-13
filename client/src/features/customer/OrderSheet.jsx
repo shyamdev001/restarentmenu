@@ -38,12 +38,13 @@ export function OrderTracker({ order }) {
   );
 }
 
-export default function OrderSheet({ open, onClose, lines, currency, eta, total, onQty, onSend, sending, orders, onCall, onBill, alerts, onAlerts }) {
+export default function OrderSheet({ open, onClose, lines, currency, eta, total, onQty, onSend, sending, orders, onCall, onBill, alerts, onAlerts, onWatch }) {
   const active = orders.filter((o) => o.status !== 'served').slice().reverse();
   return (
     <Sheet open={open} onClose={onClose} title="Your" accent="order" tall>
       <div className="c-body c-rail" style={{ gap: 14 }}>
         {active.map((o) => <OrderTracker key={o.id} order={o} />)}
+        {active.length > 0 && <button className="c-ghost c-press" style={{ flex: 'none' }} onClick={onWatch}>See it being made</button>}
         {active.length > 0 && alerts === 'default' && (
           <button className="c-alerts c-press" onClick={onAlerts}>
             <Icon name="bell" size={16} />

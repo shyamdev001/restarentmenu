@@ -4,6 +4,7 @@ import { createOrder, toPublicOrder } from '../services/order.service.js';
 import { realtime } from '../services/socket.js';
 import { push, publicKey, removeSubscription, saveSubscription } from '../services/push.js';
 import { assertTable, openOrders } from '../services/tables.js';
+import { ordersAhead, publicGame, rate, spin } from '../services/waiting.js';
 
 /** GET /api/menu : everything the customer app needs in one request. */
 export const getMenu = asyncHandler(async (_req, res) => {
@@ -14,7 +15,7 @@ export const getMenu = asyncHandler(async (_req, res) => {
   ]);
   const { name, tagline, welcome, currency, taxPercent, tables, requireQr } = settings;
   res.set('Cache-Control', 'no-store');
-  res.json({ settings: { name, tagline, welcome, currency, taxPercent, tables, requireQr }, categories, dishes });
+  res.json({ settings: { name, tagline, welcome, currency, taxPercent, tables, requireQr, game: publicGame(settings) }, categories, dishes });
 });
 
 /** POST /api/orders */
@@ -32,7 +33,11 @@ export const placeOrder = asyncHandler(async (req, res) => {
 export const getOrders = asyncHandler(async (req, res) => {
   const ids = String(req.query.ids || '').split(',').filter((id) => /^[a-f0-9]{24}$/.test(id)).slice(-30);
   const orders = ids.length ? await Order.find({ publicId: { $in: ids } }).sort({ createdAt: 1 }) : [];
-  res.json(orders.map(toPublicOrder));
+  // For an order still in the kitchen, say how many the cooks will reach first.
+  res.json(await Promise.all(orders.map(async (o) => ({
+    ...toPublicOrder(o),
+    ahead: ['new', 'cooking'].includes(o.status) ? await ordersAhead(o) : 0
+  }))));
 });
 
 /** POST /api/calls : "call a server" or "bring the bill". */
@@ -85,4 +90,19 @@ export const serveImage = asyncHandler(async (req, res) => {
   const image = /^[a-f0-9]{24}(-s)?\.(jpg|png|webp)$/.test(req.params.name) ? await Image.findOne({ name: req.params.name }) : null;
   if (!image) return res.status(404).json({ message: 'Not found.' });
   res.set('Cache-Control', 'public, max-age=604800, immutable').type(image.type).send(image.data);
+});
+
+/* -------------------------------- While you wait ------------------------------- */
+/** POST /api/orders/:id/spin : the table's one spin of the wheel. The server picks the prize. */
+export const spinWheel = asyncHandler(async (req, res) => {
+  const { order, index } = await spin(req.params.id);
+  realtime.orderUpdated(order.toJSON(), toPublicOrder(order)); // staff see the prize on the order
+  res.json({ index, order: toPublicOrder(order) });
+});
+
+/** POST /api/orders/:id/rating : stars and an optional line, once the meal has been served. */
+export const rateOrder = asyncHandler(async (req, res) => {
+  const order = await rate(req.params.id, req.body);
+  realtime.orderUpdated(order.toJSON(), toPublicOrder(order));
+  res.json(toPublicOrder(order));
 });

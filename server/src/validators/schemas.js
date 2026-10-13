@@ -62,6 +62,21 @@ export const pushGuestSchema = z.object({
 export const pushAdminSchema = z.object({ subscription });
 export const pushRemoveSchema = z.object({ endpoint: pushEndpoint });
 
+export const ratingSchema = z.object({
+  stars: z.coerce.number().int().min(1).max(5),
+  comment: text(300).default('')
+});
+
+// The wheel: between two and eight segments, each with a label, its share of the odds, and whether it is a prize.
+export const gameSchema = z.object({
+  on: z.boolean(),
+  prizes: z.array(z.object({
+    label: text(30).min(1, 'Each segment needs a name'),
+    weight: z.coerce.number().int().min(1).max(100),
+    win: z.boolean()
+  })).min(2, 'The wheel needs at least two segments').max(8)
+});
+
 export const statusSchema = z.object({ status: z.enum(ORDER_STATUSES) });
 
 export const reorderSchema = z.object({ ids: z.array(objectId).min(1).max(200) });

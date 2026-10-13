@@ -394,6 +394,29 @@ export default function ReportsPage({ settings, setError }) {
                     )}
                   </section>
 
+                  <section className="a-card">
+                    <h2 className="a-sub" style={{ marginBottom: 6 }}>What guests said</h2>
+                    {!report.ratings && <p className="a-muted">No ratings in this period. Guests are asked to rate once their meal is served.</p>}
+                    {report.ratings && (
+                      <>
+                        <div className="a-facts">
+                          <Fact label="Average rating" value={`${report.ratings.average} of 5`} note={`from ${plural(report.ratings.count, 'rating')}`} />
+                          {report.ratings.spread.map((s) => <Fact key={s.stars} label={`${s.stars} ${s.stars === 1 ? 'star' : 'stars'}`} value={count(s.count)} />)}
+                        </div>
+                        {report.ratings.notes.length > 0 && (
+                          <ul className="a-notes">
+                            {report.ratings.notes.map((n, i) => (
+                              <li key={i}><b>{n.stars} of 5</b><span>“{n.comment}”</span><small>{tableName(n.table)} · order #{n.number}</small></li>
+                            ))}
+                          </ul>
+                        )}
+                      </>
+                    )}
+                    {report.prizes.length > 0 && (
+                      <p className="a-muted a-small" style={{ marginTop: 12 }}>Given away on the wheel: {report.prizes.map((p) => `${p.count} × ${p.label}`).join(', ')}.</p>
+                    )}
+                  </section>
+
                   <div className="a-charts">
                     <section className="a-card">
                       <h2 className="a-sub" style={{ marginBottom: 14 }}>Calls from tables</h2>

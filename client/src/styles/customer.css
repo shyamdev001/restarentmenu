@@ -717,3 +717,76 @@
 @media (orientation: landscape) and (max-height: 560px) and (min-width: 560px) {
   .c-theme { right: calc(var(--pad) + env(safe-area-inset-right) + 52px); bottom: calc(12px + env(safe-area-inset-bottom)); }
 }
+
+/* ==========================================================================
+   While you wait: the order's progress, a countdown round the plate, something
+   quick to add, the dish's story, the wheel, and a rating afterwards.
+   ========================================================================== */
+.c-wait { gap: 26px; }
+.c-wait__hero { flex: none; display: flex; flex-direction: column; align-items: center; gap: 16px; padding-top: 6px; text-align: center; }
+.c-wait__plate { --plate: clamp(150px, 46vw, 200px); position: relative; width: var(--plate); height: var(--plate); flex: none; }
+.c-wait__plate .c-plate { position: absolute; inset: 9%; left: 9%; top: 9%; width: auto; height: auto; margin: 0; padding: 2.4%; animation: cFloat 5.5s ease-in-out infinite alternate; }
+.c-wait__plate .c-plate img { animation: cSway 9s ease-in-out infinite alternate; }
+.c-wait__ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.c-wait__ring circle { fill: none; stroke: rgb(var(--fg) / 0.12); stroke-width: 1.4; }
+.c-wait__ring circle + circle { stroke: var(--gold); stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 295.3; transition: stroke-dashoffset 1.4s var(--out); }
+.c-wait__hero.is-new .c-plate__dish img { filter: saturate(0.6) brightness(0.92); }
+.c-wait__hero.is-ready .c-wait__ring circle + circle, .c-wait__hero.is-served .c-wait__ring circle + circle { stroke: var(--good); }
+.c-wait__hero.is-cooking .c-wait__plate::after { content: ''; position: absolute; inset: 4%; border-radius: 50%; box-shadow: 0 0 34px 6px rgba(226, 130, 40, 0.5); animation: cGlow 1.6s ease-in-out infinite alternate; pointer-events: none; }
+.c-wait__ember { position: absolute; left: calc(22% + var(--n) * 18%); bottom: 14%; width: 5px; height: 5px; border-radius: 50%; background: var(--spark); box-shadow: 0 0 10px 2px rgb(var(--spark-rgb) / 0.8); opacity: 0; animation: cEmber 3.2s ease-in infinite; animation-delay: calc(var(--n) * 0.7s); pointer-events: none; }
+.c-wait__time { font-size: 15px; line-height: 1.5; color: var(--soft); }
+.c-wait__time b { font-family: var(--serif); font-weight: 500; font-size: 26px; color: var(--text); font-variant-numeric: lining-nums; }
+.c-wait__steps { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: var(--faint); }
+.c-wait__steps li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.c-wait__steps li::before { content: ''; position: absolute; top: 6px; right: 50%; width: 100%; height: 1px; background: rgb(var(--fg) / 0.16); }
+.c-wait__steps li:first-child::before { display: none; }
+.c-wait__steps li.is-done::before, .c-wait__steps li.is-now::before { background: var(--gold); }
+.c-wait__steps i { position: relative; width: 13px; height: 13px; border-radius: 50%; border: 1px solid var(--gold); background: var(--card); }
+.c-wait__steps .is-done { color: var(--soft); }
+.c-wait__steps .is-done i { background: var(--gold); }
+.c-wait__steps .is-now { color: var(--text); }
+.c-wait__steps .is-now i { background: var(--gold); animation: cPulseGold 1.6s ease-out infinite; }
+
+.c-wait__block { flex: none; display: flex; flex-direction: column; gap: 12px; padding-top: 22px; border-top: 1px solid var(--hair); }
+.c-wait__small { font-size: 13px; line-height: 1.5; }
+.c-wait__thanks { flex: none; text-align: center; font-family: var(--serif); font-style: italic; font-size: 18px; color: var(--soft); }
+.c-wait__adds { display: flex; flex-direction: column; }
+.c-quick { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 8px 0; border-top: 1px solid var(--line); }
+.c-quick:first-child { border-top: 0; }
+.c-quick img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex: none; box-shadow: 0 0 0 1px var(--hair); }
+.c-quick span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.c-quick b { font-family: var(--serif); font-weight: 500; font-size: 18px; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.c-quick small { font-size: 12.5px; color: var(--muted); }
+.c-quick__add { flex: none; min-width: 72px; height: 44px; padding: 0 16px; border-radius: 22px; border: 1px solid rgb(var(--fg) / 0.24); background: none; font-size: 14px; font-weight: 600; white-space: nowrap; }
+.c-quick__add.is-in { background: var(--satin); border-color: transparent; color: var(--dark); }
+.c-wait__story .c-chip { background: none; }
+.c-wait__story .c-chip.is-on { background: var(--satin); border-color: transparent; color: var(--dark); font-weight: 600; }
+.c-wait__story .c-quote { animation: cUp 0.7s var(--out) backwards; }
+.c-wait__made { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.c-wait__made li { height: 34px; padding: 0 14px; border-radius: 17px; border: 1px solid rgb(var(--fg) / 0.2); display: flex; align-items: center; font-size: 13px; animation: cUp 0.6s var(--out) backwards; }
+
+/* The wheel. */
+.c-wheel { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.c-wheel__stage { position: relative; width: min(280px, 78%); aspect-ratio: 1; }
+.c-wheel__disc { width: 100%; height: 100%; transition: transform 4.6s cubic-bezier(0.12, 0.82, 0.14, 1); filter: drop-shadow(0 14px 22px rgb(var(--shade) / 0.35)); }
+.c-wheel__disc path { stroke: var(--gold); stroke-width: 0.3; }
+.c-wheel__disc path.is-a { fill: var(--card); }
+.c-wheel__disc path.is-b { fill: var(--well); }
+.c-wheel__disc path.is-win { fill: #e2c487; }
+.c-wheel__disc text { font-family: var(--sans); font-size: 3.7px; font-weight: 700; fill: var(--text); letter-spacing: 0.02em; }
+.c-wheel__disc path.is-win + text { fill: var(--dark); }
+.c-wheel__rim { fill: none; stroke: var(--gold); stroke-width: 1.6; }
+.c-wheel__hub { fill: var(--dark); stroke: var(--gold); stroke-width: 1; }
+.c-wheel__pin { position: absolute; z-index: 1; left: 50%; top: -6px; width: 0; height: 0; margin-left: -9px; border-left: 9px solid transparent; border-right: 9px solid transparent; border-top: 18px solid var(--text); filter: drop-shadow(0 2px 3px rgb(var(--shade) / 0.5)); }
+.c-wheel .c-cta { max-width: 320px; }
+.c-wheel__error { font-size: 14px; color: var(--bad); text-align: center; }
+.c-prize { align-items: center; text-align: center; }
+.c-prize__label { font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 8vw, 36px); line-height: 1.1; text-wrap: balance; }
+.c-prize.is-win .c-prize__label { color: var(--accent); animation: cPop 0.7s var(--out); }
+
+/* Stars. */
+.c-stars { display: flex; justify-content: center; gap: 4px; }
+.c-star { width: 52px; height: 52px; border: 0; background: none; padding: 0; display: grid; place-items: center; color: rgb(var(--fg) / 0.3); transition: color 0.2s ease, transform 0.3s var(--out); }
+.c-star.is-on { color: var(--gold); transform: scale(1.08); }
+
+@keyframes cGlow { from { opacity: 0.45; transform: scale(0.97); } to { opacity: 1; transform: scale(1.03); } }

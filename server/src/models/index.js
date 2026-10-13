@@ -13,6 +13,11 @@ const settingSchema = new Schema({
   taxPercent: { type: Number, default: 5, min: 0, max: 50 },
   tables: { type: Number, default: 10, min: 1, max: 500 },
   publicUrl: { type: String, default: '', trim: true },
+  // The wheel guests can spin while they wait. Each prize has a weight (its share of the wheel's odds).
+  game: {
+    on: { type: Boolean, default: false },
+    prizes: [{ _id: false, label: { type: String, trim: true, maxlength: 30 }, weight: { type: Number, min: 1, max: 100 }, win: { type: Boolean, default: true } }]
+  },
   requireQr: { type: Boolean, default: false },  // only take orders that come from a scanned table QR code (off until the owner turns it on)
   orderCounter: { type: Number, default: 100 }
 }, jsonOptions);
@@ -73,6 +78,10 @@ const orderSchema = new Schema({
   status: { type: String, enum: ORDER_STATUSES, default: 'new', index: true },
   // When the order reached each step, for the kitchen-speed report.
   cookingAt: Date, readyAt: Date, servedAt: Date, cancelledAt: Date,
+  // While-you-wait: the table's one spin of the wheel, and the guest's rating after the meal.
+  spunAt: Date,
+  prize: { label: String, win: Boolean },
+  rating: { stars: { type: Number, min: 1, max: 5 }, comment: { type: String, trim: true, maxlength: 300 }, at: Date },
   settled: { type: Boolean, default: false },     // the table has paid: no longer part of anyone's bill
   clientKey: { type: String }                     // made by the guest's phone, so a retried send is not a second order
 }, jsonOptions);

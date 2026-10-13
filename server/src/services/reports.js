@@ -83,7 +83,7 @@ export async function buildReport(range) {
 
   const [
     totals, previous, cancelled, byDay, byHour, byWeekday, heat, byTable, sizes,
-    dishRows, addonRows, spiceRows, speed, calls, dishes, categories
+    dishRows, addonRows, spiceRows, speed, calls, dishes, categories, rated, prizes
   ] = await Promise.all([
     totalsOf(range),
     totalsOf(before),
@@ -116,7 +116,12 @@ export async function buildReport(range) {
       answer: { $avg: { $cond: [{ $eq: ['$status', 'done'] }, { $subtract: ['$updatedAt', '$createdAt'] }, null] } }
     } }]),
     Dish.find().select('name accent category available price').lean(),
-    Category.find().select('name').lean()
+    Category.find().select('name').lean(),
+    // What guests said afterwards, and what the wheel gave away.
+    Order.aggregate([...all, { $match: { 'rating.stars': { $gte: 1 } } }, { $sort: { 'rating.at': -1 } },
+      { $group: { _id: null, n: { $sum: 1 }, average: { $avg: '$rating.stars' }, stars: { $push: '$rating.stars' },
+        notes: { $push: { stars: '$rating.stars', comment: '$rating.comment', table: '$table', number: '$number', at: '$rating.at' } } } }]),
+    Order.aggregate([...all, { $match: { 'prize.win': true } }, { $group: { _id: '$prize.label', n: { $sum: 1 } } }, { $sort: { n: -1 } }])
   ]);
 
   const categoryName = new Map(categories.map((c) => [String(c._id), c.name]));
@@ -172,6 +177,12 @@ export async function buildReport(range) {
       total: minutes(kitchen.total), slowest: minutes(kitchen.slowest),
       accept: minutes(kitchen.accept), cook: minutes(kitchen.cook), carry: minutes(kitchen.carry)
     } : null,
+    ratings: rated[0] ? {
+      count: rated[0].n, average: Math.round(rated[0].average * 10) / 10,
+      spread: [5, 4, 3, 2, 1].map((n) => ({ stars: n, count: rated[0].stars.filter((s) => s === n).length })),
+      notes: rated[0].notes.filter((n) => n.comment).slice(0, 8)
+    } : null,
+    prizes: prizes.map((p) => ({ label: p._id, count: p.n })),
     calls: {
       waiter: callOf('waiter')?.n || 0, bill: callOf('bill')?.n || 0,
       waiterAnswer: minutes(callOf('waiter')?.answer), billAnswer: minutes(callOf('bill')?.answer)

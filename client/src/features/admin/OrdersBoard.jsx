@@ -30,6 +30,7 @@ function OrderCard({ order, column, currency, onStatus }) {
           );
         })}
       </ul>
+      {order.prize?.win && <div className="a-prize"><Icon name="star" size={14} />Won on the wheel: {order.prize.label}</div>}
       <div className="a-muted a-small">Total {money(order.total, currency)} incl. tax</div>
       <div className="a-order__foot">
         <button className="a-btn is-gold" onClick={() => onStatus(order, column.next)}>{column.action}</button>

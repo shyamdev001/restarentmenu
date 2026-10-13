@@ -10,7 +10,10 @@ export function toPublicOrder(order) {
     id: o.publicId, number: o.number, table: o.table, status: o.status, settled: !!o.settled,
     items: o.items.map(({ name, qty, unitPrice, spice, addons, note, lineTotal }) => ({ name, qty, unitPrice, spice, addons, note, lineTotal })),
     subtotal: o.subtotal, taxPercent: o.taxPercent, tax: o.tax, total: o.total,
-    etaMin: o.etaMin, createdAt: o.createdAt
+    etaMin: o.etaMin, createdAt: o.createdAt,
+    // While-you-wait: whether the table has spun, what it won, and the guest's rating.
+    spun: !!o.spunAt, prize: o.prize?.label ? { label: o.prize.label, win: !!o.prize.win } : null,
+    stars: o.rating?.stars || 0
   };
 }
 

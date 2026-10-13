@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../lib/api.js';
 import { glowOf, optionFor, unitPrice } from '../../lib/format.js';
 import { usePersistentState } from '../../lib/usePersistentState.js';
-import { alertsState, askForAlerts, enablePush, setBaseTitle } from '../../lib/notify.js';
+import { alertsState, askForAlerts, buzz, enablePush, play, setBaseTitle } from '../../lib/notify.js';
 import Notices, { useNotices } from '../../components/Notices.jsx';
 import { useLiveLink, useMenu, useOrders, useTableBill, useTableNews } from './hooks.js';
 import Welcome from './Welcome.jsx';
@@ -12,6 +12,7 @@ import DishSheet from './DishSheet.jsx';
 import OrderSheet from './OrderSheet.jsx';
 import BillSheet from './BillSheet.jsx';
 import TableSheet from './TableSheet.jsx';
+import WaitSheet from './WaitSheet.jsx';
 import '../../styles/customer.css';
 
 const IDLE_MS = 12000;     // start the showreel after this long without a touch or mouse move
@@ -72,7 +73,7 @@ export default function CustomerApp() {
   const savedTable = seat.table;
   const [pending, setPending] = useState(null);                // what to finish once a table is chosen
   const { menu, error, reload: reloadMenu } = useMenu();
-  const { orders, addOrder, clearOrders } = useOrders();
+  const { orders, addOrder, clearOrders, putOrder } = useOrders();
   const { items: notices, push: notify, dismiss: dismissNotice } = useNotices();
   const [alerts, setAlerts] = useState(alertsState);
   const linked = useLiveLink();
@@ -85,13 +86,14 @@ export default function CustomerApp() {
   const [entered, setEntered] = useState(hasEntered);
   const [category, setCategory] = useState('all');
   const [currentId, setCurrentId] = useState(null);
-  const [sheet, setSheet] = useState(null);                    // null | 'menu' | 'dish' | 'order' | 'bill' | 'table'
+  const [sheet, setSheet] = useState(null);                    // null | 'menu' | 'dish' | 'order' | 'bill' | 'table' | 'wait'
   const [bump, setBump] = useState(0);
   const [toast, setToast] = useState('');
   const [sending, setSending] = useState(false);
   const lastTouch = useRef(Date.now());
   const toastTimer = useRef();
   const autoStep = useRef({ at: 0, from: null });              // the showreel's last move
+  const watching = useRef(false);                              // true while the waiting screen is open
   const seenStatus = useRef(null);
   if (!seenStatus.current) seenStatus.current = readSeen();
 
@@ -102,6 +104,7 @@ export default function CustomerApp() {
   }, []);
 
   useEffect(() => { if (menu) setBaseTitle(`${menu.settings.name} · Menu`); }, [menu]);
+  useEffect(() => { watching.current = sheet === 'wait'; }, [sheet]);
 
   const enter = () => {
     try { sessionStorage.setItem('sm.entered', '1'); } catch { /* private mode */ }
@@ -121,7 +124,10 @@ export default function CustomerApp() {
     const seen = seenStatus.current;
     orders.forEach((o) => {
       if (seen[o.id] && seen[o.id] !== o.status && STATUS_NEWS[o.status]) {
-        notify({ ...STATUS_NEWS[o.status](o), tag: 'order-' + o.id, action: () => setSheet('order') });
+        const news = STATUS_NEWS[o.status](o);
+        // Already watching the order's own screen: it changes in front of them, so just the sound.
+        if (watching.current && !document.hidden) { play(news.sound); if (news.vibrate) buzz(news.vibrate === true ? undefined : news.vibrate); }
+        else notify({ ...news, tag: 'order-' + o.id, action: () => setSheet('wait') });
       }
       seen[o.id] = o.status;
     });
@@ -319,11 +325,12 @@ export default function CustomerApp() {
       addOrder(order);
       setCart({});
       setOpts({});
+      setSheet('wait'); // straight to the waiting screen: progress, something quick to add, the dish's story
       const offer = alerts === 'default';
       notify({
         icon: 'receipt', title: `Order #${order.number} is with the kitchen`, sound: 'soft', ttl: offer ? 11000 : 7000,
         body: offer ? 'Tap here to be told on this phone when it moves, even with the menu closed.' : 'You will hear from us here the moment it moves.',
-        action: offer ? async () => setAlerts(await askForAlerts()) : () => setSheet('order')
+        action: offer ? async () => setAlerts(await askForAlerts()) : () => setSheet('wait')
       });
     } catch (e) {
       refused(e);
@@ -366,7 +373,8 @@ export default function CustomerApp() {
         settings={settings} table={table}
         categories={categories} category={category}
         onCategory={(id) => { setCategory(id); setCurrentId(null); }}
-        dishes={visible} index={index} onStep={step} onPick={setCurrentId} onOpen={setSheet}
+        dishes={visible} index={index} onStep={step} onPick={setCurrentId}
+        onOpen={(name) => setSheet(name === 'order' && !cartCount && orders.length ? 'wait' : name)}
         qty={cart[dish.id] || 0} onAdd={() => add(1)}
         cartCount={cartCount} cartTotal={cartTotal} bump={bump} orderStatus={live ? STATUS_LABEL[live.status] : ''}
         isFav={!!favs[dish.id]} onFav={toggleFav} canPickTable={!settings.requireQr}
@@ -386,7 +394,12 @@ export default function CustomerApp() {
         lines={lines} currency={settings.currency} eta={eta} total={cartTotal}
         onQty={setQty} onSend={() => sendOrder()} sending={sending}
         orders={orders} onCall={call} onBill={() => setSheet('bill')}
-        alerts={alerts} onAlerts={async () => setAlerts(await askForAlerts())} />
+        alerts={alerts} onAlerts={async () => setAlerts(await askForAlerts())} onWatch={() => setSheet('wait')} />
+
+      <WaitSheet open={sheet === 'wait'} onClose={() => setSheet(null)} orders={orders} dishes={dishes} settings={settings} table={table}
+        cart={cart} cartCount={cartCount} cartTotal={cartTotal} sending={sending}
+        onAdd={(d) => { setQty(d.id, (cart[d.id] || 0) + 1); setBump((b) => b + 1); }}
+        onSend={() => sendOrder()} onBasket={() => setSheet('order')} onOrder={putOrder} />
 
       <BillSheet open={sheet === 'bill'} onClose={() => setSheet(null)} orders={orders} tableOrders={tableBill} table={table} currency={settings.currency}
         onAsk={() => call('bill')} onNewVisit={() => { clearOrders(); setSheet(null); }} />

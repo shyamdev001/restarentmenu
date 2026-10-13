@@ -101,14 +101,18 @@ export function useOrders() {
       setOrders(open);
       if (open.length !== key.split(',').length) setRefs((refs) => refs.filter((r) => open.some((o) => o.id === r.id)));
     }).catch(() => {});
-    const onUpdate = (order) => setOrders((list) => list.map((o) => (o.id === order.id ? order : o)));
+    // A live update carries the order but not its place in the queue: keep what we knew of that.
+    const onUpdate = (order) => setOrders((list) => list.map((o) => (o.id === order.id ? { ...o, ...order } : o)));
 
     watch();
     refresh();
     socket.on('connect', watch);
     socket.on('connect', refresh);
     socket.on('order:update', onUpdate);
+    // The queue ahead moves without any news for this order, so look again now and then.
+    const poll = setInterval(refresh, 25000);
     return () => {
+      clearInterval(poll);
       socket.off('connect', watch);
       socket.off('connect', refresh);
       socket.off('order:update', onUpdate);
@@ -121,6 +125,8 @@ export function useOrders() {
   }, [setRefs]);
 
   const clearOrders = useCallback(() => setRefs([]), [setRefs]);
+  /** Put a fresher copy of one order in place (after a spin or a rating). */
+  const putOrder = useCallback((order) => setOrders((list) => list.map((o) => (o.id === order.id ? { ...o, ...order } : o))), []);
 
-  return { orders, addOrder, clearOrders };
+  return { orders, addOrder, clearOrders, putOrder };
 }
