@@ -590,3 +590,10 @@ p.a-error { padding: 12px 16px; border-radius: 12px; border: 1px solid rgb(var(-
   .a-pick__opts { padding-left: 0; }
   .a-neworder__foot { margin: 0 -16px calc((18px + env(safe-area-inset-bottom)) * -1); padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); border-radius: 0; }
 }
+
+/* The voice settings under the bell. */
+.a-voice { display: flex; flex-direction: column; gap: 10px; }
+.a-voice__row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.a-voice__speeds { display: flex; gap: 6px; }
+.a-voice .a-btn { min-height: 38px; padding: 0 14px; white-space: nowrap; }
+.a-pop { overflow-y: auto; }

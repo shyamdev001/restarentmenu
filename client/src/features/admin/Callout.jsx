@@ -1,18 +1,28 @@
 import { useEffect, useState } from 'react';
 import Icon from '../../components/Icon.jsx';
-import { speakLines } from '../../lib/speech.js';
+import { speakLines, voiceDetail } from '../../lib/speech.js';
 import { tableName } from '../../lib/format.js';
 
 const KINDS = {
-  new: { label: 'New order', icon: 'receipt', say: 'New order.' },
-  ready: { label: 'Ready to serve', icon: 'bell', say: 'Order ready.' },
-  call: { label: 'Table calling', icon: 'bell', say: '' }
+  new: { label: 'New order', icon: 'receipt' },
+  ready: { label: 'Ready to serve', icon: 'bell' },
+  call: { label: 'Table calling', icon: 'bell' }
 };
 
-/** How one dish is read out: "2 Butter Chicken, fiery, with butter naan". */
+const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'];
+const count = (n) => WORDS[n] || String(n);
+
+/**
+ * How one dish is said, the way a person at the pass would call it: "two
+ * butter chicken, fiery, with butter naan". Medium heat is the usual, so it is
+ * left unsaid to keep the call short.
+ */
 function spoken(item) {
-  const extras = [item.spice && item.spice.toLowerCase(), item.addons?.length ? 'with ' + item.addons.map((a) => a.name).join(' and ') : ''].filter(Boolean);
-  return `${item.qty} ${item.name}` + (extras.length ? ', ' + extras.join(', ') : '');
+  const extras = [
+    item.spice && item.spice !== 'Medium' ? item.spice.toLowerCase() : '',
+    item.addons?.length ? item.addons.map((a) => a.name).join(' and ') : ''
+  ].filter(Boolean);
+  return `${count(item.qty)} ${item.name}` + (extras.length ? ', ' + extras.join(', ') : '');
 }
 
 /**
@@ -27,21 +37,25 @@ export default function Callout({ call, onDone }) {
   const kind = KINDS[call.kind];
   const place = tableName(call.table);
   const items = call.items || [];
+  // As few words as a person at the pass would use: where first, then what. The screen already says which kind it is.
   const headline = call.kind === 'call'
-    ? `${place} is asking for ${call.type === 'bill' ? 'the bill' : 'a server'}.`
-    : `${kind.say} ${place}.`;
+    ? `${place}, ${call.type === 'bill' ? 'bill please' : 'needs a server'}`
+    : call.kind === 'ready' ? `${place}, ready` : place;
 
   useEffect(() => {
     let close;
     // Line 0 is the headline; lines 1… are the dishes. A short pause first lets the chime ring out.
-    const lines = [headline, ...items.map(spoken)];
+    // In short mode only the table is spoken, with how much is coming; the dishes light up on screen at reading pace.
+    const short = voiceDetail() === 'short' && items.length > 0;
+    const plates = items.reduce((n, i) => n + i.qty, 0);
+    const lines = short ? [`${headline}, ${count(plates)} ${plates === 1 ? 'plate' : 'plates'}`] : [headline, ...items.map(spoken)];
     let stop = () => {};
     const start = setTimeout(() => {
       stop = speakLines(lines, {
-        onLine: (i) => setAt(i),
-        onEnd: () => { close = setTimeout(onDone, 1800); }
+        onLine: (i) => setAt(short ? items.length + 1 : i),
+        onEnd: () => { close = setTimeout(onDone, short ? 2600 : 1100); }
       });
-    }, 650);
+    }, 150);
     return () => { clearTimeout(start); clearTimeout(close); stop(); };
   }, [call]); // eslint-disable-line react-hooks/exhaustive-deps
 

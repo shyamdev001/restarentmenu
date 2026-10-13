@@ -4,7 +4,7 @@ import Icon from '../../components/Icon.jsx';
 import Notices, { useNotices } from '../../components/Notices.jsx';
 import { alertsState, askForAlerts, buzz, enablePush, isMuted, onSoundReady, play, setBaseTitle, setMuted, soundReady } from '../../lib/notify.js';
 import { money, tableName, timeAgo } from '../../lib/format.js';
-import { canSpeak, setVoiceOn, voiceOn } from '../../lib/speech.js';
+import { SPEEDS, canSpeak, chosenVoice, listVoices, onVoices, setChosenVoice, setVoiceDetail, setVoiceOn, setVoiceRate, speakLines, voiceDetail, voiceOn, voiceRate } from '../../lib/speech.js';
 import Callout from './Callout.jsx';
 import { useTheme } from '../../lib/theme.js';
 import { useAdminData } from './useAdminData.js';
@@ -50,6 +50,11 @@ function Panel({ user, onLogout }) {
   const [calling, setCalling] = useState([]);     // call-outs waiting to take the screen, first one showing
   const [callouts, setCallouts] = useState(() => { try { return localStorage.getItem('sm.callouts') !== '0'; } catch { return true; } });
   const [voice, setVoice] = useState(voiceOn);
+  const [voices, setVoices] = useState(listVoices);   // the device's voices, most natural first
+  const [voiceName, setVoiceName] = useState(chosenVoice);
+  const [rate, setRate] = useState(voiceRate);
+  const [detail, setDetail] = useState(voiceDetail);
+  useEffect(() => onVoices(() => setVoices(listVoices())), []);
 
   // Every new order and table call: a notice, a sound, and a line in the bell's list.
   const onEvent = useCallback((kind, payload) => {
@@ -73,7 +78,8 @@ function Panel({ user, onLogout }) {
       setCalling((list) => [...list, { key: notice.tag + Date.now(), kind: kind === 'order' ? 'new' : kind, table: payload.table, number: payload.number, items: payload.items, type: payload.type }].slice(-6));
     }
     // With the call-out on screen a card as well would only repeat it: just ring. In the background, the card and system alert still fire.
-    if (callOut && !document.hidden) { if (notice.sound) play(notice.sound); buzz(); }
+    // A short chime only, so the voice can start straight away.
+    if (callOut && !document.hidden) { if (notice.sound) play(kind === 'call' ? 'call' : 'soft'); buzz(); }
     else notify({ ...notice, important: true, vibrate: true, ttl: 12000, action: () => setTab('orders') });
     setLog((list) => [{ id: notice.tag, icon: notice.icon, title: notice.title, body: notice.body, at: Date.now() }, ...list].slice(0, 20));
     setUnread((n) => n + 1);
@@ -121,6 +127,10 @@ function Panel({ user, onLogout }) {
   const enableAlerts = async () => setAlerts(await askForAlerts());
   const toggleCallouts = () => { const on = !callouts; setCallouts(on); if (!on) setCalling([]); try { localStorage.setItem('sm.callouts', on ? '1' : '0'); } catch { /* private mode */ } };
   const toggleVoice = () => { setVoiceOn(!voice); setVoice(!voice); };
+  const testVoice = () => speakLines(['Table four', 'two butter chicken, butter naan', 'one masala dosa']);
+  const pickVoice = (name) => { setChosenVoice(name); setVoiceName(name); setTimeout(testVoice, 50); };
+  const pickRate = (r) => { setVoiceRate(r); setRate(r); setTimeout(testVoice, 50); };
+  const pickDetail = (v) => { setVoiceDetail(v); setDetail(v); };
   const toggleMute = () => { setMuted(!muted); setMute(!muted); if (muted) play('soft'); };
 
   // One place to move between sections: also closes the phone's "More" sheet and carries any target (a dish to open).
@@ -200,6 +210,28 @@ function Panel({ user, onLogout }) {
                   <div className="a-pop__row">
                     <span><Icon name="sound" size={16} />Read it aloud</span>
                     <button className="a-switch" role="switch" aria-checked={voice} aria-label="Read each order aloud" onClick={toggleVoice} />
+                  </div>
+                )}
+                {callouts && canSpeak() && voice && (
+                  <div className="a-voice">
+                    <label className="a-label">Voice
+                      <select value={voiceName || voices[0]?.name || ''} onChange={(e) => pickVoice(e.target.value)}>
+                        {voices.map((v) => <option key={v.name} value={v.name}>{v.label} ({v.quality})</option>)}
+                      </select>
+                    </label>
+                    <div className="a-voice__row">
+                      <div className="a-voice__speeds" role="group" aria-label="Speaking speed">
+                        {SPEEDS.map(([label, r]) => <button key={label} className={'a-opt' + (rate === r ? ' is-on' : '')} aria-pressed={rate === r} onClick={() => pickRate(r)}>{label}</button>)}
+                      </div>
+                      <button className="a-btn" onClick={testVoice}>Hear it</button>
+                    </div>
+                    <div className="a-voice__speeds" role="group" aria-label="How much to say">
+                      <button className={'a-opt' + (detail === 'full' ? ' is-on' : '')} aria-pressed={detail === 'full'} onClick={() => pickDetail('full')}>Say every dish</button>
+                      <button className={'a-opt' + (detail === 'short' ? ' is-on' : '')} aria-pressed={detail === 'short'} onClick={() => pickDetail('short')}>Just the table</button>
+                    </div>
+                    {voices.length > 0 && !voices.some((v) => v.quality === 'Natural') && (
+                      <p className="a-pop__note">This browser only has standard voices. For a natural, human-sounding one, open the admin in Microsoft Edge on this device: it includes realistic voices at no cost.</p>
+                    )}
                   </div>
                 )}
                 {alerts === 'default' && (
