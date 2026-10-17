@@ -826,7 +826,7 @@
 @keyframes cArtIn { from { transform: scale(0.4) rotate(-20deg); opacity: 0; } 60% { transform: scale(1.12); } to { transform: none; opacity: 1; } }
 
 /* The current stage, pinned to the plate on the waiting screen */
-.c-wait__badge { position: absolute; right: -2%; bottom: -2%; display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--card); border: 1px solid var(--hair); box-shadow: 0 10px 28px -10px rgb(0 0 0 / 0.45); animation: cArtIn 0.7s cubic-bezier(.3, 1.4, .5, 1) backwards; z-index: 2; }
+.c-wait__badge { position: absolute; right: -2%; bottom: -2%; display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--card); border: 1px solid var(--hair); box-shadow: 0 10px 28px -10px rgb(0 0 0 / 0.45); animation: cArtIn 0.7s cubic-bezier(.22, 1, .36, 1) backwards; z-index: 2; }
 
 /* The four steps, each with its own drawing */
 .c-wait__steps li::before { top: 21px; }
@@ -834,11 +834,11 @@
 .c-wait__steps li:not(.is-done):not(.is-now) .c-art { opacity: 0.35; filter: grayscale(1); }
 .c-wait__steps .is-done .c-wait__icon { border-color: rgb(var(--gold-rgb) / 0.55); }
 .c-wait__steps .is-now .c-wait__icon { border-color: var(--gold); animation: cPulseGold 1.8s ease-out infinite; }
-.c-wait__steps .is-now .c-art { animation: cArtIn 0.6s cubic-bezier(.3, 1.4, .5, 1) backwards; }
+.c-wait__steps .is-now .c-art { animation: cArtIn 0.6s cubic-bezier(.22, 1, .36, 1) backwards; }
 
 /* The tracker in the basket sheet */
 .c-track__head { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
-.c-track__art { flex: none; display: grid; place-items: center; width: 68px; height: 68px; border-radius: 50%; background: rgb(var(--gold-rgb) / 0.08); border: 1px solid rgb(var(--gold-rgb) / 0.3); animation: cArtIn 0.7s cubic-bezier(.3, 1.4, .5, 1) backwards; }
+.c-track__art { flex: none; display: grid; place-items: center; width: 68px; height: 68px; border-radius: 50%; background: rgb(var(--gold-rgb) / 0.08); border: 1px solid rgb(var(--gold-rgb) / 0.3); animation: cArtIn 0.7s cubic-bezier(.22, 1, .36, 1) backwards; }
 
 @media (prefers-reduced-motion: reduce) {
   .c-art *, .c-wait__badge, .c-track__art, .c-wait__steps .is-now .c-wait__icon { animation: none !important; }

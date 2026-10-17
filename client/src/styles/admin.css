@@ -664,7 +664,7 @@ p.a-error { padding: 12px 16px; border-radius: 12px; border: 1px solid rgb(var(-
 .k-col.is-new h2 { color: var(--gold); }
 .k-col.is-ready h2 { color: var(--good); }
 .k-empty { margin: 0; padding: 26px 12px; border: 1px dashed var(--hair); border-radius: 16px; text-align: center; color: var(--faint); font-size: 14px; }
-.k-ticket { --edge: var(--gold); display: flex; flex-direction: column; border-radius: 16px; background: var(--card); border: 1px solid var(--hair); border-top: 4px solid var(--edge); box-shadow: 0 12px 30px -20px rgb(0 0 0 / 0.5); overflow: hidden; animation: kIn 0.45s cubic-bezier(.2, .9, .3, 1.2) backwards; }
+.k-ticket { --edge: var(--gold); display: flex; flex-direction: column; border-radius: 16px; background: var(--card); border: 1px solid var(--hair); border-top: 4px solid var(--edge); box-shadow: 0 12px 30px -20px rgb(0 0 0 / 0.5); overflow: hidden; animation: kIn 0.45s cubic-bezier(.22, 1, .36, 1) backwards; }
 .k-col.is-cooking .k-ticket { --edge: #e2822a; }
 .k-col.is-ready .k-ticket { --edge: var(--good); }
 .k-ticket.is-warn { --edge: #e0a100; }
