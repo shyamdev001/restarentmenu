@@ -6,17 +6,17 @@ import { money, tableName, timeAgo } from '../../lib/format.js';
 import NewOrder from './NewOrder.jsx';
 
 const COLUMNS = [
-  { status: 'new', title: 'New', next: 'cooking', action: 'Start cooking' },
-  { status: 'cooking', title: 'Cooking', next: 'ready', action: 'Mark ready' },
-  { status: 'ready', title: 'Ready to serve', next: 'served', action: 'Served' }
+  { status: 'new', title: 'New', next: 'cooking', action: 'Start cooking', needs: 'cook' },
+  { status: 'cooking', title: 'Cooking', next: 'ready', action: 'Mark ready', needs: 'cook' },
+  { status: 'ready', title: 'Ready to serve', next: 'served', action: 'Served', needs: 'serve' }
 ];
 
-function OrderCard({ order, column, currency, onStatus }) {
+function OrderCard({ order, column, currency, onStatus, can }) {
   return (
     <article className={'a-card a-order' + (order.status === 'new' ? ' is-new' : '')}>
       <div className="a-order__top">
         <b>{tableName(order.table)}</b>
-        <span className="a-muted a-small">#{order.number} · {timeAgo(order.createdAt)}{order.source === 'staff' ? ' · by staff' : ''}</span>
+        <span className="a-muted a-small">#{order.number} · {timeAgo(order.createdAt)}{order.source === 'staff' ? ` · by ${order.enteredBy || 'staff'}` : ''}</span>
       </div>
       <ul>
         {order.items.map((item, i) => {
@@ -33,14 +33,14 @@ function OrderCard({ order, column, currency, onStatus }) {
       {order.prize?.win && <div className="a-prize"><Icon name="star" size={14} />Won on the wheel: {order.prize.label}</div>}
       <div className="a-muted a-small">Total {money(order.total, currency)} incl. tax</div>
       <div className="a-order__foot">
-        <button className="a-btn is-gold" onClick={() => onStatus(order, column.next)}>{column.action}</button>
-        {(order.status === 'new' || order.status === 'cooking') && <button className="a-btn is-danger" onClick={() => onStatus(order, 'cancelled')}>Cancel</button>}
+        {can(column.needs) && <button className="a-btn is-gold" onClick={() => onStatus(order, column.next)}>{column.action}</button>}
+        {can('cancel') && (order.status === 'new' || order.status === 'cooking') && <button className="a-btn is-danger" onClick={() => onStatus(order, 'cancelled')}>Cancel</button>}
       </div>
     </article>
   );
 }
 
-export default function OrdersBoard({ orders, calls, stats, settings, setError, openTables, loadTables, menu, open, onOpened, onSending }) {
+export default function OrdersBoard({ can, orders, calls, stats, settings, setError, openTables, loadTables, menu, open, onOpened, onSending }) {
   const [entering, setEntering] = useState(false);
   // Arriving from a shortcut or the search box with "enter an order": open the form straight away.
   useEffect(() => { if (open?.newOrder) { setEntering(true); onOpened?.(); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -74,13 +74,13 @@ export default function OrdersBoard({ orders, calls, stats, settings, setError, 
       {entering && <NewOrder menu={menu} settings={settings} onClose={() => setEntering(false)} onSent={() => setEntering(false)} onSending={onSending} />}
       <div className="a-title">
         <h1>Live <em>orders</em></h1>
-        <button className="a-btn is-gold" onClick={() => setEntering(true)}><Icon name="plus" size={16} />New order</button>
+        {can('enter') && <button className="a-btn is-gold" onClick={() => setEntering(true)}><Icon name="plus" size={16} />New order</button>}
       </div>
       <div className="a-stats">
         <div className="a-stat"><b>{stats.active}</b><span>Active orders</span></div>
         <div className="a-stat"><b>{stats.orders}</b><span>Orders today</span></div>
         <div className="a-stat"><b>{stats.items}</b><span>Plates today</span></div>
-        <div className="a-stat"><b>{money(stats.revenue, currency)}</b><span>Sales today</span></div>
+        {can('reports') && <div className="a-stat"><b>{money(stats.revenue, currency)}</b><span>Sales today</span></div>}
       </div>
 
       {calls.length > 0 && (
@@ -90,7 +90,7 @@ export default function OrdersBoard({ orders, calls, stats, settings, setError, 
             {calls.map((call) => (
               <div key={call.id} className="a-call">
                 Table {call.table}: {call.type === 'bill' ? 'wants the bill' : 'needs a server'}
-                <button className="a-btn is-gold" onClick={() => doneCall(call)}>Done</button>
+                {can('calls') && <button className="a-btn is-gold" onClick={() => doneCall(call)}>Done</button>}
               </div>
             ))}
           </div>
@@ -105,7 +105,7 @@ export default function OrdersBoard({ orders, calls, stats, settings, setError, 
               <div key={t.table} className="a-opentable">
                 <span><b>{tableName(t.table)}</b><small>{t.orders} {t.orders === 1 ? 'order' : 'orders'}{t.active ? ` · ${t.active} in the kitchen` : ' · all served'}</small></span>
                 <strong>{money(t.total, currency)}</strong>
-                <button className="a-btn" disabled={t.active > 0} onClick={() => markPaid(t)}>Mark paid</button>
+                {can('settle') && <button className="a-btn" disabled={t.active > 0} onClick={() => markPaid(t)}>Mark paid</button>}
               </div>
             ))}
           </div>
@@ -118,7 +118,7 @@ export default function OrdersBoard({ orders, calls, stats, settings, setError, 
           return (
             <section key={column.status} className="a-col" aria-label={column.title}>
               <h2 className="a-sub">{column.title}{list.length > 0 && <span className="a-badge">{list.length}</span>}</h2>
-              {list.map((o) => <OrderCard key={o.id} order={o} column={column} currency={currency} onStatus={setStatus} />)}
+              {list.map((o) => <OrderCard key={o.id} order={o} column={column} currency={currency} onStatus={setStatus} can={can} />)}
               {!list.length && <div className="a-empty">Nothing here.</div>}
             </section>
           );

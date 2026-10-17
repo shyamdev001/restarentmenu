@@ -19,21 +19,30 @@ import HistoryPage from './HistoryPage.jsx';
 import ReportsPage from './ReportsPage.jsx';
 import HomePage from './HomePage.jsx';
 import Finder from './Finder.jsx';
+import KitchenScreen from './KitchenScreen.jsx';
+import StaffPage from './StaffPage.jsx';
+import AccountPage from './AccountPage.jsx';
 import '../../styles/admin.css';
 
 // Sections grouped by what they are for. [id, label, icon]
 const NAV = [
-  { group: 'Today', items: [['home', 'Home', 'home'], ['orders', 'Orders', 'receipt']] },
+  { group: 'Today', items: [['home', 'Home', 'home'], ['orders', 'Orders', 'receipt'], ['kitchen', 'Kitchen screen', 'chef']] },
   { group: 'Your business', items: [['reports', 'Reports', 'chart'], ['history', 'History', 'clock']] },
   { group: 'Your menu', items: [['menu', 'Dishes', 'dish'], ['categories', 'Categories', 'grid']] },
-  { group: 'Setup', items: [['tables', 'Tables & QR', 'qr'], ['settings', 'Settings', 'gear']] }
+  { group: 'Setup', items: [['tables', 'Tables & QR', 'qr'], ['staff', 'Staff', 'users'], ['settings', 'Settings', 'gear'], ['account', 'My account', 'user']] }
 ];
-const BAR = ['home', 'orders', 'menu', 'reports']; // on the phone's bottom bar; the rest sit under More
+// What a role must be allowed to do to see each section. Sections not listed are open to everyone signed in.
+const NEEDS = { orders: ['orders'], kitchen: ['orders'], reports: ['reports'], history: ['reports'], menu: ['menu', 'soldout'], categories: ['menu'], tables: ['qr'], staff: ['staff'], settings: ['settings'] };
+const BAR_ORDER = ['home', 'orders', 'kitchen', 'reports', 'menu']; // the first four this person may use go on the phone's bottom bar
+const ROLE_NAMES = { owner: 'Owner', manager: 'Manager', waiter: 'Waiter', kitchen: 'Kitchen' };
 
 const REMIND_MS = 60000; // while something is waiting, a quiet reminder this often
 
 function Panel({ user, onLogout }) {
-  const [tab, setTab] = useState('home');
+  const can = useCallback((what) => (user.can || []).includes(what), [user]);
+  const allowed = useCallback((id) => !NEEDS[id] || NEEDS[id].some(can), [can]);
+  // The kitchen lands straight on its screen; everyone else on Home.
+  const [tab, setTab] = useState(user.role === 'kitchen' ? 'kitchen' : 'home');
   const [moreOpen, setMoreOpen] = useState(false);
   const [target, setTarget] = useState(null);   // something to open on arrival, e.g. a dish
   const [theme, toggleTheme] = useTheme();
@@ -134,7 +143,7 @@ function Panel({ user, onLogout }) {
   const toggleMute = () => { setMuted(!muted); setMute(!muted); if (muted) play('soft'); };
 
   // One place to move between sections: also closes the phone's "More" sheet and carries any target (a dish to open).
-  const go = (to, extra) => { setTab(to); setMoreOpen(false); setTarget(extra || null); };
+  const go = (to, extra) => { if (!allowed(to)) return; setTab(to); setMoreOpen(false); setTarget(extra || null); };
   const run = (what) => { if (what === 'theme') toggleTheme(); else if (what === 'bell') { setBellOpen(true); setUnread(0); } };
 
   if (!data.settings) return <div className="boot">{data.error || 'Loading…'}</div>;
@@ -145,9 +154,13 @@ function Panel({ user, onLogout }) {
       {id === 'orders' && waiting > 0 && <span className="a-badge">{waiting}</span>}
     </button>
   );
-  const everything = NAV.flatMap((g) => g.items);
-  const onBar = everything.filter(([id]) => BAR.includes(id));
-  const underMore = everything.filter(([id]) => !BAR.includes(id));
+  const groups = NAV.map((g) => ({ ...g, items: g.items.filter(([id]) => allowed(id)) })).filter((g) => g.items.length);
+  const everything = groups.flatMap((g) => g.items);
+  const bar = BAR_ORDER.filter(allowed).slice(0, 4);
+  const onBar = bar.map((id) => everything.find(([x]) => x === id));
+  const underMore = everything.filter(([id]) => !bar.includes(id));
+  const sections = new Set(everything.map(([id]) => id));
+  const signedIn = `${user.name || user.username} · ${ROLE_NAMES[user.role] || 'Owner'}`;
 
   return (
     <>
@@ -156,7 +169,7 @@ function Panel({ user, onLogout }) {
       <aside className="a-side">
         <div className="a-brand">{data.settings.name}<small>ADMIN</small></div>
         <nav aria-label="Sections">
-          {NAV.map((g) => (
+          {groups.map((g) => (
             <div key={g.group} className="a-navgroup">
               <h2>{g.group}</h2>
               {g.items.map((item) => navButton(item))}
@@ -165,7 +178,8 @@ function Panel({ user, onLogout }) {
         </nav>
         <div className="a-side__foot">
           <span className={'a-live' + (data.connected ? '' : ' is-off')} role="status">{data.connected ? 'Live' : 'Reconnecting'}</span>
-          <button className="a-nav" onClick={onLogout}><Icon name="logout" size={18} /><span>Sign out {user.username}</span></button>
+          <p className="a-who"><Icon name="user" size={15} />{signedIn}</p>
+          <button className="a-nav" onClick={onLogout}><Icon name="logout" size={18} /><span>Sign out</span></button>
         </div>
       </aside>
 
@@ -175,7 +189,7 @@ function Panel({ user, onLogout }) {
             <div className="a-brand a-brand--top">{data.settings.name}
               <span className={'a-live' + (data.connected ? '' : ' is-off')} role="status">{data.connected ? 'Live' : 'Reconnecting'}</span>
             </div>
-            <Finder dishes={data.menu.dishes} onGo={go} onRun={run} />
+            <Finder dishes={data.menu.dishes} onGo={go} onRun={run} allowed={allowed} can={can} />
             <button className="a-btn is-icon a-theme" onClick={toggleTheme}
               aria-label={theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}>
               <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} />
@@ -247,11 +261,14 @@ function Panel({ user, onLogout }) {
         <main className="a-wrap a-main">
           {silent && !muted && <p className="a-soundhint" role="status"><Icon name="sound" size={16} />Tap anywhere once so this screen can ring for new orders.</p>}
           {data.error && <p className="a-error" role="alert">{data.error} <button className="a-btn" onClick={() => data.setError('')}>Dismiss</button></p>}
-          {tab === 'home' && <HomePage {...data} alerts={alerts} go={go} onAlerts={enableAlerts} />}
-          {tab === 'orders' && <OrdersBoard {...data} open={target} onOpened={() => setTarget(null)} onSending={() => { sending.current += 1; setTimeout(() => { sending.current = Math.max(0, sending.current - 1); }, 10000); }} />}
+          {tab === 'home' && <HomePage {...data} alerts={alerts} go={go} onAlerts={enableAlerts} can={can} sections={sections} />}
+          {tab === 'kitchen' && <KitchenScreen orders={data.orders} can={can} setError={data.setError} />}
+          {tab === 'staff' && <StaffPage me={user} setError={data.setError} />}
+          {tab === 'account' && <AccountPage me={user} />}
+          {tab === 'orders' && <OrdersBoard {...data} can={can} open={target} onOpened={() => setTarget(null)} onSending={() => { sending.current += 1; setTimeout(() => { sending.current = Math.max(0, sending.current - 1); }, 10000); }} />}
           {tab === 'history' && <HistoryPage settings={data.settings} setError={data.setError} />}
           {tab === 'reports' && <ReportsPage settings={data.settings} setError={data.setError} />}
-          {tab === 'menu' && <MenuManager {...data} open={target} onOpened={() => setTarget(null)} />}
+          {tab === 'menu' && <MenuManager {...data} can={can} open={target} onOpened={() => setTarget(null)} />}
           {tab === 'categories' && <CategoryManager {...data} />}
           {tab === 'tables' && <TablesQr settings={data.settings} />}
           {tab === 'settings' && <SettingsPage settings={data.settings} reload={data.loadMenu} />}
@@ -270,7 +287,7 @@ function Panel({ user, onLogout }) {
           <button className="a-more__veil" onClick={() => setMoreOpen(false)} aria-label="Close" tabIndex={-1} />
           <div className="a-more" role="dialog" aria-label="More sections">
             {underMore.map((item) => navButton(item))}
-            <button className="a-nav" onClick={onLogout}><Icon name="logout" size={18} /><span>Sign out {user.username}</span></button>
+            <button className="a-nav" onClick={onLogout}><Icon name="logout" size={18} /><span>Sign out · {signedIn}</span></button>
           </div>
         </>
       )}

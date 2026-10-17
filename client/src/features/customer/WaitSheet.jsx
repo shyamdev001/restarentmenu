@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Sheet from './Sheet.jsx';
 import Icon from '../../components/Icon.jsx';
 import { api } from '../../lib/api.js';
+import StageArt from './StageArt.jsx';
 import { HEAT_LABELS, fullName, money, pad2, thumb } from '../../lib/format.js';
 
 const STEPS = ['new', 'cooking', 'ready', 'served'];
@@ -166,6 +167,7 @@ export default function WaitSheet({
             </svg>
             <div className="c-plate"><span className="c-plate__dish">{lead?.image && <img src={lead.image} alt="" />}</span></div>
             {focus.status === 'cooking' && [0, 1, 2, 3].map((n) => <i key={n} className="c-wait__ember" style={{ '--n': n }} aria-hidden="true" />)}
+            {!cancelled && <span className="c-wait__badge" key={focus.status}><StageArt stage={focus.status} size={46} /></span>}
           </div>
 
           {cancelled ? (
@@ -182,7 +184,9 @@ export default function WaitSheet({
           {!cancelled && (
             <ol className="c-wait__steps">
               {['Received', 'Cooking', 'On its way', 'Served'].map((label, i) => (
-                <li key={label} className={i < at ? 'is-done' : i === at ? 'is-now' : ''}><i />{label}</li>
+                <li key={label} className={i < at ? 'is-done' : i === at ? 'is-now' : ''}>
+                  <span className="c-wait__icon"><StageArt stage={STEPS[i]} size={i === at ? 34 : 26} still={i !== at} /></span>{label}
+                </li>
               ))}
             </ol>
           )}

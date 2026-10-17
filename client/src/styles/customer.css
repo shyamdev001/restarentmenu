@@ -790,3 +790,58 @@
 .c-star.is-on { color: var(--gold); transform: scale(1.08); }
 
 @keyframes cGlow { from { opacity: 0.45; transform: scale(0.97); } to { opacity: 1; transform: scale(1.03); } }
+
+/* ---------- Animated stage drawings (StageArt) ---------- */
+.c-art { display: block; overflow: visible; color: var(--gold); fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.c-art * { transform-box: fill-box; }
+.c-art__slip { fill: rgb(var(--gold-rgb) / 0.1); }
+.c-art__line { stroke-dasharray: 12; stroke-dashoffset: 12; animation: cArtWrite 2.4s ease-in-out infinite; }
+.c-art__bell { transform-origin: 50% 0; animation: cArtRing 2.4s ease-in-out infinite; }
+.c-art__bell path:first-child { fill: rgb(var(--gold-rgb) / 0.22); }
+.c-art__pan { transform-origin: 20% 50%; animation: cArtToss 1.2s ease-in-out infinite; }
+.c-art__pan path:first-child { fill: rgb(var(--gold-rgb) / 0.16); }
+.c-art__bit { fill: #e8833a; stroke: none; animation: cArtBit 1.2s cubic-bezier(.3, .7, .4, 1) infinite; }
+.c-art__flame { fill: #f08a24; stroke: #e2561b; stroke-width: 1; transform-origin: 50% 100%; animation: cArtFlame 0.5s ease-in-out infinite alternate; }
+.c-art__steam { stroke-width: 1.8; opacity: 0; animation: cArtSteam 2.2s ease-out infinite; }
+.c-art__lid { transform-origin: 85% 100%; animation: cArtLid 2.6s cubic-bezier(.5, 0, .3, 1) infinite; }
+.c-art__lid path:first-child { fill: rgb(var(--gold-rgb) / 0.2); }
+.c-art__spark { transform-origin: 50% 50%; animation: cArtTwinkle 1.6s ease-in-out infinite; }
+.c-art__plate:first-of-type { fill: rgb(var(--gold-rgb) / 0.12); }
+.c-art.is-served .c-art__plate:first-of-type { animation: cArtGlow 2.4s ease-in-out infinite alternate; }
+.c-art.is-ready { color: var(--good); }
+.c-art.is-served { color: var(--good); }
+.c-art.is-still *, .c-art.is-still { animation: none !important; }
+.c-art.is-still .c-art__line { stroke-dashoffset: 0; }
+.c-art.is-still .c-art__steam { opacity: 0.5; }
+
+@keyframes cArtWrite { 0% { stroke-dashoffset: 12; } 40%, 80% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -12; } }
+@keyframes cArtRing { 0%, 55%, 100% { transform: rotate(0); } 62% { transform: rotate(16deg); } 70% { transform: rotate(-14deg); } 78% { transform: rotate(9deg); } 86% { transform: rotate(-5deg); } }
+@keyframes cArtToss { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(-7deg) translateY(-1px); } 55% { transform: rotate(3deg); } }
+@keyframes cArtBit { 0%, 100% { transform: translateY(0); } 45% { transform: translateY(-11px) rotate(120deg); } }
+@keyframes cArtFlame { from { transform: scale(0.85, 0.78); opacity: 0.8; } to { transform: scale(1.05, 1.12); opacity: 1; } }
+@keyframes cArtSteam { 0% { transform: translateY(5px); opacity: 0; } 35% { opacity: 0.8; } 100% { transform: translateY(-7px); opacity: 0; } }
+@keyframes cArtLid { 0%, 20% { transform: none; } 45%, 70% { transform: translate(5px, -7px) rotate(18deg); } 95%, 100% { transform: none; } }
+@keyframes cArtTwinkle { 0%, 100% { transform: scale(0.3); opacity: 0; } 50% { transform: scale(1.15); opacity: 1; } }
+@keyframes cArtGlow { from { fill: rgb(var(--good-rgb, 31 122 58) / 0.08); } to { fill: rgb(var(--good-rgb, 31 122 58) / 0.24); } }
+@keyframes cArtIn { from { transform: scale(0.4) rotate(-20deg); opacity: 0; } 60% { transform: scale(1.12); } to { transform: none; opacity: 1; } }
+
+/* The current stage, pinned to the plate on the waiting screen */
+.c-wait__badge { position: absolute; right: -2%; bottom: -2%; display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--card); border: 1px solid var(--hair); box-shadow: 0 10px 28px -10px rgb(0 0 0 / 0.45); animation: cArtIn 0.7s cubic-bezier(.3, 1.4, .5, 1) backwards; z-index: 2; }
+
+/* The four steps, each with its own drawing */
+.c-wait__steps li::before { top: 21px; }
+.c-wait__icon { position: relative; z-index: 1; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgb(var(--fg) / 0.16); background: var(--card); transition: border-color 0.4s, box-shadow 0.4s; }
+.c-wait__steps li:not(.is-done):not(.is-now) .c-art { opacity: 0.35; filter: grayscale(1); }
+.c-wait__steps .is-done .c-wait__icon { border-color: rgb(var(--gold-rgb) / 0.55); }
+.c-wait__steps .is-now .c-wait__icon { border-color: var(--gold); animation: cPulseGold 1.8s ease-out infinite; }
+.c-wait__steps .is-now .c-art { animation: cArtIn 0.6s cubic-bezier(.3, 1.4, .5, 1) backwards; }
+
+/* The tracker in the basket sheet */
+.c-track__head { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.c-track__art { flex: none; display: grid; place-items: center; width: 68px; height: 68px; border-radius: 50%; background: rgb(var(--gold-rgb) / 0.08); border: 1px solid rgb(var(--gold-rgb) / 0.3); animation: cArtIn 0.7s cubic-bezier(.3, 1.4, .5, 1) backwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .c-art *, .c-wait__badge, .c-track__art, .c-wait__steps .is-now .c-wait__icon { animation: none !important; }
+  .c-art__line { stroke-dashoffset: 0; }
+  .c-art__steam { opacity: 0.5; }
+}

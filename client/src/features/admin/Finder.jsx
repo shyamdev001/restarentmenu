@@ -6,9 +6,11 @@ import { fullName } from '../../lib/format.js';
  * Everything an owner might look for, in their own words. Each entry says
  * where it lives, so typing "gst" or "password" finds the right page.
  */
-const PLACES = [
+const ALL_PLACES = [
   { label: 'Orders board', where: 'Orders', to: 'orders', words: 'new cooking ready served kitchen live cancel order' },
-  { label: 'Enter an order yourself', where: 'Orders', to: 'orders', extra: { newOrder: true }, words: 'manual new order takeaway counter walk-in phone parcel staff' },
+  { label: 'Kitchen screen', where: 'Kitchen screen', to: 'kitchen', words: 'kds kitchen display tickets chef cook tablet pass timer' },
+  { label: 'Add or remove staff', where: 'Staff', to: 'staff', words: 'staff waiter cook chef manager employee user role permission login account' },
+  { label: 'Enter an order yourself', where: 'Orders', to: 'orders', extra: { newOrder: true }, needs: 'enter', words: 'manual new order takeaway counter walk-in phone parcel staff' },
   { label: 'Spoken order call-outs', where: 'Bell, top right', run: 'bell', words: 'voice speak announce read aloud kitchen call out' },
   { label: 'Mark a table as paid', where: 'Orders', to: 'orders', words: 'bill paid settle open tables close' },
   { label: 'Tables asking for a server or the bill', where: 'Orders', to: 'orders', words: 'call waiter bill request' },
@@ -18,7 +20,7 @@ const PLACES = [
   { label: 'Busiest hours and days', where: 'Reports', to: 'reports', words: 'peak time rush weekday' },
   { label: 'Tax collected', where: 'Reports', to: 'reports', words: 'gst tax vat' },
   { label: 'Past orders by day', where: 'History', to: 'history', words: 'old previous yesterday orders history' },
-  { label: 'Add a dish', where: 'Dishes', to: 'menu', extra: { newDish: true }, words: 'new item food create' },
+  { label: 'Add a dish', where: 'Dishes', to: 'menu', extra: { newDish: true }, needs: 'menu', words: 'new item food create' },
   { label: 'Change a price or photo', where: 'Dishes', to: 'menu', words: 'edit price photo image picture description' },
   { label: 'Mark a dish sold out', where: 'Dishes', to: 'menu', words: 'unavailable out of stock finished hide' },
   { label: 'Extras and add-ons', where: 'Dishes', to: 'menu', words: 'addons extras sides options' },
@@ -30,7 +32,7 @@ const PLACES = [
   { label: 'Tax rate and currency', where: 'Settings', to: 'settings', words: 'gst tax percent currency rupee symbol' },
   { label: 'Number of tables', where: 'Settings', to: 'settings', words: 'tables count seats' },
   { label: 'Website address', where: 'Settings', to: 'settings', words: 'url domain public link address' },
-  { label: 'Change password', where: 'Settings', to: 'settings', words: 'password login security account' },
+  { label: 'Change password', where: 'My account', to: 'account', words: 'password login security account my' },
   { label: 'Sound and alerts', where: 'Bell, top right', run: 'bell', words: 'sound mute notification ring alert push' },
   { label: 'Light or dark theme', where: 'Moon, top right', run: 'theme', words: 'dark light theme colour color mode' }
 ];
@@ -38,7 +40,7 @@ const PLACES = [
 const SUGGESTED = ['Add a dish', 'Mark a dish sold out', 'Print table QR codes', 'Sales reports', 'Change password'];
 
 /** The search box at the top of every admin page: type what you want, press Enter, be there. */
-export default function Finder({ dishes, onGo, onRun }) {
+export default function Finder({ dishes, onGo, onRun, allowed, can }) {
   const [text, setText] = useState('');
   const [open, setOpen] = useState(false);
   const [at, setAt] = useState(0);
@@ -46,14 +48,16 @@ export default function Finder({ dishes, onGo, onRun }) {
   const input = useRef(null);
 
   const results = useMemo(() => {
+    const PLACES = ALL_PLACES.filter((p) => (p.run || allowed(p.to)) && (!p.needs || can(p.needs)));
     const words = text.toLowerCase().split(/\s+/).filter(Boolean);
     if (!words.length) return PLACES.filter((p) => SUGGESTED.includes(p.label));
     const hit = (haystack) => words.every((w) => haystack.includes(w));
     const places = PLACES.filter((p) => hit(`${p.label} ${p.where} ${p.words}`.toLowerCase()));
     const found = dishes.filter((d) => hit(fullName(d).toLowerCase())).slice(0, 5)
-      .map((d) => ({ label: fullName(d), where: 'Edit this dish', to: 'menu', extra: { dishId: d.id }, dish: true }));
+      .map((d) => ({ label: fullName(d), where: 'Edit this dish', to: 'menu', extra: { dishId: d.id }, dish: true }))
+      .filter(() => can('menu'));
     return [...found, ...places].slice(0, 8);
-  }, [text, dishes]);
+  }, [text, dishes, allowed, can]);
 
   useEffect(() => { setAt(0); }, [text]);
 

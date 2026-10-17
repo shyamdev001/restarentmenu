@@ -55,6 +55,21 @@ Sections are listed down the side on a laptop and along the bottom on a phone (t
 | Tables & QR | A printable QR code for every table. |
 | Settings | Restaurant name, welcome text, currency, tax %, number of tables, public address, password. |
 
+## Staff, roles and the kitchen screen
+
+Each person gets their own sign-in under **Staff** (owners only). Every role sees only the sections and buttons it can use, and the server checks the same rules on every request:
+
+| Role | Can |
+| --- | --- |
+| Owner | Everything, including settings, staff and sales |
+| Manager | Run service, edit the menu, see reports and QR codes |
+| Waiter | Enter orders, serve, answer table calls, mark bills paid |
+| Kitchen | Start and finish orders, mark dishes sold out |
+
+Each order keeps a trail of who moved it and when. Switching an account off signs it out at once. There is always at least one active owner. Anyone can change their own password under **My account**.
+
+The **Kitchen screen** is made for a tablet on the pass. It shows big tickets in three columns (to start, cooking, ready), each with a clock that turns amber, then red, as the order runs long. It also shows the "all day" count of every dish still to cook. Cooks tap a line to tick it off and press and hold to move an order on, so a stray touch does nothing. Full screen is one tap, and the screen stays awake.
+
 ## Live notifications
 
 - **In the page:** guests see a notice each time the kitchen moves their order on or answers a call from their table. The admin panel shows a notice, rings and vibrates for every new order and table call, and repeats a quiet reminder each minute while something is waiting. The bell in the admin header keeps the last 20 alerts and has the sound switch.

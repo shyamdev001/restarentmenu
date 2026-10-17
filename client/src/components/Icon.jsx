@@ -29,7 +29,11 @@ const PATHS = {
   up: 'M12 19V5M6 11l6-6 6 6',
   down: 'M12 5v14M6 13l6 6 6-6',
   logout: 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10',
-  print: 'M7 8V3h10v5M7 17H4v-7h16v7h-3M7 14h10v7H7z'
+  print: 'M7 8V3h10v5M7 17H4v-7h16v7h-3M7 14h10v7H7z',
+  expand: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
+  users: 'M9 11a3.500 3.500 0 1 0 0-7 3.500 3.500 0 0 0 0 7zM3 20a6 6 0 0 1 12 0M16 4.500a3.500 3.500 0 0 1 0 6.500M18 14a6 6 0 0 1 3 6',
+  user: 'M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM5 21a7 7 0 0 1 14 0',
+  chef: 'M7 14a4 4 0 0 1-.500-7.900A5 5 0 0 1 17.500 6.100 4 4 0 0 1 17 14v6H7zM7 17h10'
 };
 
 export default function Icon({ name, size = 18, fill = 'none', strokeWidth = 2 }) {

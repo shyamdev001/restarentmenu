@@ -2,7 +2,7 @@ import { Router } from 'express';
 import * as pub from '../controllers/public.controller.js';
 import * as auth from '../controllers/auth.controller.js';
 import * as admin from '../controllers/admin.controller.js';
-import { validate, requireAdmin, publicWriteLimiter, pushLimiter, loginLimiter, uploadImage } from '../middleware/index.js';
+import { validate, requireAdmin, allow, publicWriteLimiter, pushLimiter, loginLimiter, uploadImage } from '../middleware/index.js';
 import * as s from '../validators/schemas.js';
 
 const router = Router();
@@ -30,39 +30,44 @@ router.put('/auth/password', requireAdmin, validate(s.passwordSchema), auth.chan
 const a = Router();
 a.use(requireAdmin);
 
-a.get('/orders', admin.listOrders);
-a.post('/orders', validate(s.staffOrderSchema), admin.createStaffOrder);
-a.patch('/orders/:id', validate(s.statusSchema), admin.updateOrderStatus);
-a.get('/stats', admin.getStats);
-a.get('/reports', admin.report);
-a.get('/reports/export', admin.reportCsv);
-a.get('/history', admin.historyDays);
-a.get('/history/:day', admin.historyDay);
+a.get('/orders', allow('orders'), admin.listOrders);
+a.post('/orders', allow('enter'), validate(s.staffOrderSchema), admin.createStaffOrder);
+a.patch('/orders/:id', allow('orders'), validate(s.statusSchema), admin.updateOrderStatus);
+a.get('/stats', allow('orders'), admin.getStats);
+a.get('/reports', allow('reports'), admin.report);
+a.get('/reports/export', allow('reports'), admin.reportCsv);
+a.get('/history', allow('reports'), admin.historyDays);
+a.get('/history/:day', allow('reports'), admin.historyDay);
 
-a.get('/tables/open', admin.listOpenTables);
-a.post('/tables/:table/settle', admin.settle);
-a.get('/table-codes', admin.tableCodes);
+a.get('/tables/open', allow('orders'), admin.listOpenTables);
+a.post('/tables/:table/settle', allow('settle'), admin.settle);
+a.get('/table-codes', allow('qr'), admin.tableCodes);
 
-a.get('/calls', admin.listCalls);
-a.patch('/calls/:id', admin.resolveCall);
+a.get('/calls', allow('orders'), admin.listCalls);
+a.patch('/calls/:id', allow('calls'), admin.resolveCall);
 
-a.post('/categories', validate(s.categorySchema), admin.createCategory);
-a.put('/categories/order', validate(s.reorderSchema), admin.reorderCategories);
-a.put('/categories/:id', validate(s.categorySchema), admin.updateCategory);
-a.delete('/categories/:id', admin.deleteCategory);
+a.post('/categories', allow('menu'), validate(s.categorySchema), admin.createCategory);
+a.put('/categories/order', allow('menu'), validate(s.reorderSchema), admin.reorderCategories);
+a.put('/categories/:id', allow('menu'), validate(s.categorySchema), admin.updateCategory);
+a.delete('/categories/:id', allow('menu'), admin.deleteCategory);
 
-a.post('/dishes', validate(s.dishSchema), admin.createDish);
-a.put('/dishes/:id', validate(s.dishSchema), admin.updateDish);
-a.patch('/dishes/:id/availability', admin.setAvailability);
-a.delete('/dishes/:id', admin.deleteDish);
-a.post('/upload', uploadImage, admin.uploadDishImage);
+a.post('/dishes', allow('menu'), validate(s.dishSchema), admin.createDish);
+a.put('/dishes/:id', allow('menu'), validate(s.dishSchema), admin.updateDish);
+a.patch('/dishes/:id/availability', allow('soldout'), admin.setAvailability);
+a.delete('/dishes/:id', allow('menu'), admin.deleteDish);
+a.post('/upload', allow('menu'), uploadImage, admin.uploadDishImage);
 
 a.post('/push/subscribe', validate(s.pushAdminSchema), admin.pushSubscribe);
 
 a.get('/settings', admin.readSettings);
-a.put('/settings/game', validate(s.gameSchema), admin.updateGame);
-a.put('/settings', validate(s.settingsSchema), admin.updateSettings);
-a.get('/qr/:table', admin.tableQr);
+a.put('/settings/game', allow('settings'), validate(s.gameSchema), admin.updateGame);
+a.put('/settings', allow('settings'), validate(s.settingsSchema), admin.updateSettings);
+a.get('/qr/:table', allow('qr'), admin.tableQr);
+
+a.get('/staff', allow('staff'), admin.staffList);
+a.post('/staff', allow('staff'), validate(s.staffAddSchema), admin.staffAdd);
+a.put('/staff/:id', allow('staff'), validate(s.staffChangeSchema), admin.staffChange);
+a.delete('/staff/:id', allow('staff'), admin.staffRemove);
 
 router.use('/admin', a);
 

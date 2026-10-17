@@ -7,6 +7,8 @@ import rateLimit from 'express-rate-limit';
 import { ZodError } from 'zod';
 import { env } from '../config/env.js';
 import { ApiError } from '../utils/ApiError.js';
+import { Admin } from '../models/index.js';
+import { canDo } from '../services/staff.js';
 
 export const UPLOAD_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../uploads');
 export const COOKIE_NAME = 'sm_token';
@@ -17,16 +19,27 @@ export const validate = (schema) => (req, _res, next) => {
   next();
 };
 
-/** Require a valid admin session cookie. */
-export function requireAdmin(req, _res, next) {
+/**
+ * Require a signed-in member of staff. The account is read fresh on every
+ * request, so a changed role or a switched-off account takes effect at once.
+ */
+export async function requireAdmin(req, _res, next) {
   try {
     const payload = jwt.verify(req.cookies?.[COOKIE_NAME] || '', env.jwtSecret);
+    const staff = await Admin.findById(payload.sub).lean();
+    if (!staff || staff.active === false) throw new Error('signed out');
     req.adminId = payload.sub;
+    req.staff = { id: String(staff._id), name: staff.name || staff.username, role: staff.role || 'owner' };
     next();
   } catch {
     next(ApiError.unauthorized());
   }
 }
+
+/** Only staff whose role includes this capability may go further. */
+export const allow = (capability) => (req, _res, next) => (
+  canDo(req.staff?.role, capability) ? next() : next(new ApiError(403, 'Your role does not allow this. Ask the owner if you need it.'))
+);
 
 const limiter = (windowMs, max, message) => rateLimit({
   windowMs, max, standardHeaders: true, legacyHeaders: false,

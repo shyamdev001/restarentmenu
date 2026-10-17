@@ -5,6 +5,7 @@ import { createOrder, moveOrder, toPublicOrder } from '../services/order.service
 import { openTables, settleTable, tableCode } from '../services/tables.js';
 import { buildReport, exportCsv, ordersIn, rangeOf, todayIn, zoneOf } from '../services/reports.js';
 import { gameOf, saveGame } from '../services/waiting.js';
+import { ROLES, STEP_NEEDS, addStaff, canDo, changeStaff, listStaff, removeStaff } from '../services/staff.js';
 import { realtime } from '../services/socket.js';
 import { push, saveSubscription } from '../services/push.js';
 import { removePhoto, savePhoto } from '../services/photos.js';
@@ -19,14 +20,17 @@ export const listOrders = asyncHandler(async (req, res) => {
 
 /** POST /orders : staff enter an order themselves, for a guest who will not scan, a phone order or a takeaway. */
 export const createStaffOrder = asyncHandler(async (req, res) => {
-  const { order } = await createOrder(req.body, { staff: true });
+  const { order } = await createOrder(req.body, { staff: true, by: req.staff.name });
   realtime.orderCreated(order.toJSON());
   push.orderCreated(order.toJSON());
   res.status(201).json(order);
 });
 
 export const updateOrderStatus = asyncHandler(async (req, res) => {
-  const { order, changed } = await moveOrder(req.params.id, req.body.status);
+  // Each step needs its own permission: the kitchen starts and finishes, a waiter serves, a manager cancels.
+  const needs = STEP_NEEDS[req.body.status];
+  if (needs && !canDo(req.staff.role, needs)) throw new ApiError(403, `Your role cannot mark orders ${req.body.status}. Ask the owner if you need it.`);
+  const { order, changed } = await moveOrder(req.params.id, req.body.status, req.staff.name);
   if (changed) {
     realtime.orderUpdated(order.toJSON(), toPublicOrder(order));
     push.orderUpdated(order.toJSON());
@@ -54,6 +58,12 @@ export const tableCodes = asyncHandler(async (_req, res) => {
   for (let n = 1; n <= tables; n += 1) codes[n] = await tableCode(n);
   res.json({ codes });
 });
+
+/* ------------------------------------ Staff ------------------------------------ */
+export const staffList = asyncHandler(async (_req, res) => res.json({ staff: await listStaff(), roles: ROLES }));
+export const staffAdd = asyncHandler(async (req, res) => res.status(201).json(await addStaff(req.body)));
+export const staffChange = asyncHandler(async (req, res) => res.json(await changeStaff(req.params.id, req.body, req.staff.id)));
+export const staffRemove = asyncHandler(async (req, res) => { await removeStaff(req.params.id, req.staff.id); res.json({ ok: true }); });
 
 /* ----------------------------------- History ---------------------------------- */
 /** GET /history?tz= : one line per day for the last 60 days that had orders. */

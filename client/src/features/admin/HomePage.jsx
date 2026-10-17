@@ -25,7 +25,7 @@ function Row({ icon, title, hint, action, onClick, urgent }) {
  * The first screen after signing in: what needs doing now, how today is going,
  * what is still to set up, and the things an owner reaches for most.
  */
-export default function HomePage({ orders, calls, stats, openTables, menu, settings, alerts, go, onAlerts }) {
+export default function HomePage({ orders, calls, stats, openTables, menu, settings, alerts, go, onAlerts, can, sections }) {
   const currency = settings.currency;
   const fresh = orders.filter((o) => o.status === 'new').length;
   const cooking = orders.filter((o) => o.status === 'cooking').length;
@@ -51,17 +51,20 @@ export default function HomePage({ orders, calls, stats, openTables, menu, setti
     localSite && { icon: 'gear', title: 'Enter your website address', hint: 'The table QR codes are built from it. Until then they only work on this computer.', action: 'Settings', to: 'settings' },
     noPhoto.length > 0 && { icon: 'dish', title: `${plural(noPhoto.length, 'dish', 'dishes')} without a photo`, hint: noPhoto.slice(0, 3).map((d) => `${d.name} ${d.accent || ''}`.trim()).join(', ') + (noPhoto.length > 3 ? '…' : ''), action: 'Add photos', to: 'menu' },
     alerts === 'default' && { icon: 'bell', title: 'Get alerts on this device', hint: 'Hear about new orders even when this page is closed.', action: 'Turn on', run: onAlerts }
-  ].filter(Boolean);
+  ].filter(Boolean).filter((r) => r.run || sections.has(r.to));
 
   const shortcuts = [
-    { icon: 'receipt', title: 'Enter an order yourself', hint: 'For a takeaway, a phone order or a guest who will not scan', to: 'orders', extra: { newOrder: true } },
-    { icon: 'plus', title: 'Add a dish', hint: 'Name, price, photo and extras', to: 'menu', extra: { newDish: true } },
+    { icon: 'chef', title: 'Open the kitchen screen', hint: 'Big tickets with timers, for a tablet on the pass', to: 'kitchen' },
+    can('enter') && { icon: 'receipt', title: 'Enter an order yourself', hint: 'For a takeaway, a phone order or a guest who will not scan', to: 'orders', extra: { newOrder: true } },
+    can('menu') && { icon: 'plus', title: 'Add a dish', hint: 'Name, price, photo and extras', to: 'menu', extra: { newDish: true } },
     { icon: 'dish', title: 'Mark a dish sold out', hint: soldOut.length ? `${plural(soldOut.length, 'dish', 'dishes')} sold out right now` : 'One switch, guests see it at once', to: 'menu' },
     { icon: 'qr', title: 'Print table QR codes', hint: `${plural(settings.tables, 'table')} set up`, to: 'tables' },
     { icon: 'chart', title: 'See how the month is going', hint: 'Sales, best sellers, busiest hours', to: 'reports' },
     { icon: 'clock', title: 'Look up a past order', hint: 'Every day of the last 60', to: 'history' },
-    { icon: 'gear', title: 'Change tax, tables or password', hint: `Tax ${settings.taxPercent}% · ${settings.requireQr ? 'QR-only ordering is on' : 'any link can order'}`, to: 'settings' }
-  ];
+    { icon: 'users', title: 'Add a waiter or cook', hint: 'Their own sign-in, only what their role needs', to: 'staff' },
+    { icon: 'gear', title: 'Change tax, tables or QR rules', hint: `Tax ${settings.taxPercent}% · ${settings.requireQr ? 'QR-only ordering is on' : 'any link can order'}`, to: 'settings' },
+    { icon: 'user', title: 'Change my password', hint: 'Your own sign-in', to: 'account' }
+  ].filter(Boolean).filter((r) => sections.has(r.to));
 
   return (
     <>
@@ -77,7 +80,7 @@ export default function HomePage({ orders, calls, stats, openTables, menu, setti
           : <div className="a-empty">Nothing is waiting. New orders and table calls appear here and ring.</div>}
       </section>
 
-      <section aria-label="Today">
+      {can('reports') && <section aria-label="Today">
         <h2 className="a-sub" style={{ marginBottom: 12 }}>Today so far
           <button className="a-btn a-sub__link" onClick={() => go('reports')}>Full reports<Icon name="right" size={15} /></button>
         </h2>
@@ -87,7 +90,7 @@ export default function HomePage({ orders, calls, stats, openTables, menu, setti
           <div className="a-stat"><b>{stats.items}</b><span>Plates today</span></div>
           <div className="a-stat is-key"><b>{money(stats.revenue, currency)}</b><span>Sales today</span></div>
         </div>
-      </section>
+      </section>}
 
       {setup.length > 0 && (
         <section aria-label="Still to set up">

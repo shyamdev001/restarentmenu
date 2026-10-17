@@ -30,11 +30,16 @@ const MAY_COME_FROM = {
  * change only happens if the order is still where the tap expected it to be.
  * Returns { order, changed }.
  */
-export async function moveOrder(id, next) {
+export async function moveOrder(id, next, by = '') {
   const from = MAY_COME_FROM[next];
   if (!from) throw ApiError.badRequest('An order cannot be moved back to new.');
 
-  const order = await Order.findOneAndUpdate({ _id: id, status: { $in: from } }, { status: next, [next + 'At']: new Date() }, { new: true });
+  const at = new Date();
+  const order = await Order.findOneAndUpdate(
+    { _id: id, status: { $in: from } },
+    { status: next, [next + 'At']: at, $push: { trail: { status: next, by, at } } },
+    { new: true }
+  );
   if (order) return { order, changed: true };
 
   const current = await Order.findById(id);
@@ -58,7 +63,7 @@ export async function moveOrder(id, next) {
  *
  * Returns { order, created }.
  */
-export async function createOrder({ table, code, items, clientKey, expected }, { staff = false } = {}) {
+export async function createOrder({ table, code, items, clientKey, expected }, { staff = false, by = '' } = {}) {
   const settings = await getSettings();
   if (staff) {
     if (table > settings.tables) throw ApiError.badRequest(`Table ${table} does not exist.`);
@@ -111,6 +116,7 @@ export async function createOrder({ table, code, items, clientKey, expected }, {
       total: Math.round((subtotal + tax) * 100) / 100,
       etaMin,
       source: staff ? 'staff' : 'guest',
+      ...(staff && by ? { enteredBy: by } : {}),
       ...(clientKey ? { clientKey } : {})
     });
     return { order, created: true };

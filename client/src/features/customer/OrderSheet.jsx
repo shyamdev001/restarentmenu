@@ -1,5 +1,6 @@
 import Sheet, { Stepper } from './Sheet.jsx';
 import Icon from '../../components/Icon.jsx';
+import StageArt from './StageArt.jsx';
 import { fullName, money } from '../../lib/format.js';
 
 const STEPS = [
@@ -22,11 +23,14 @@ export function OrderTracker({ order }) {
   const at = STEPS.findIndex(([status]) => status === order.status);
   return (
     <div className="c-track" aria-live="polite">
-      <div>
-        <div className="c-eyebrow c-gold" style={{ marginBottom: 6 }}>Order #{order.number}</div>
-        <div className="c-track__title">
-          {order.status === 'served' ? 'On your table.' : `About ${order.etaMin} minutes to your table.`}
+      <div className="c-track__head">
+        <div>
+          <div className="c-eyebrow c-gold" style={{ marginBottom: 6 }}>Order #{order.number}</div>
+          <div className="c-track__title">
+            {order.status === 'served' ? 'On your table.' : `About ${order.etaMin} minutes to your table.`}
+          </div>
         </div>
+        <span className="c-track__art" key={order.status}><StageArt stage={order.status} size={52} /></span>
       </div>
       {STEPS.map(([status, label], i) => (
         <div key={status} className={'c-step' + (i <= at ? ' is-done' : '') + (i === at && status !== 'served' ? ' is-now' : '')}>

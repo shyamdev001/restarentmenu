@@ -211,6 +211,55 @@ test('the wheel gives one spin per table, and a meal is rated once after it is s
   assert.equal((await call('GET', '/menu')).body.settings.game.on, true);
 });
 
+test('staff roles decide who can do what', async () => {
+  const signIn = async (username, password) => {
+    const r = await fetch(url + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
+    return { status: r.status, cookie: r.headers.get('set-cookie')?.split(';')[0], body: await r.json() };
+  };
+  const as = (who) => async (method, path, body) => {
+    const r = await fetch(url + '/api' + path, { method, headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), cookie: who }, body: body ? JSON.stringify(body) : undefined });
+    return { status: r.status, body: await r.json().catch(() => ({})) };
+  };
+
+  const add = (u, role) => call('POST', '/admin/staff', { name: u, username: u, role, password: 'password-' + u }, { admin: true });
+  assert.equal((await add('cook1', 'kitchen')).status, 201);
+  assert.equal((await add('wait1', 'waiter')).status, 201);
+  assert.equal((await add('cook1', 'kitchen')).status, 409, 'usernames are unique');
+
+  const cook = await signIn('cook1', 'password-cook1');
+  assert.equal(cook.body.role, 'kitchen');
+  assert.ok(cook.body.can.includes('cook') && !cook.body.can.includes('reports'));
+  const kitchen = as(cook.cookie);
+  const waiter = as((await signIn('wait1', 'password-wait1')).cookie);
+
+  const placed = await call('POST', '/orders', basket(12));
+  const order = await Order.findOne({ publicId: placed.body.id });
+  assert.equal((await waiter('PATCH', `/admin/orders/${order.id}`, { status: 'cooking' })).status, 403, 'a waiter does not start cooking');
+  assert.equal((await kitchen('PATCH', `/admin/orders/${order.id}`, { status: 'cooking' })).status, 200);
+  assert.equal((await kitchen('PATCH', `/admin/orders/${order.id}`, { status: 'ready' })).status, 200);
+  assert.equal((await kitchen('PATCH', `/admin/orders/${order.id}`, { status: 'served' })).status, 403, 'the kitchen does not serve');
+  assert.equal((await waiter('PATCH', `/admin/orders/${order.id}`, { status: 'served' })).status, 200);
+  const trail = (await Order.findById(order.id)).trail.map((t) => `${t.status}:${t.by}`);
+  assert.deepEqual(trail, ['cooking:cook1', 'ready:cook1', 'served:wait1'], 'every step remembers who took it');
+
+  assert.equal((await kitchen('GET', '/admin/reports')).status, 403, 'the kitchen cannot see sales');
+  assert.equal((await waiter('PUT', `/admin/dishes/${dish.id}`, {})).status, 403, 'a waiter cannot edit the menu');
+  assert.equal((await kitchen('PATCH', `/admin/dishes/${dish.id}/availability`, { available: true })).status, 200, 'the kitchen can mark a dish sold out');
+  assert.equal((await waiter('GET', '/admin/staff')).status, 403);
+  const entered = await waiter('POST', '/admin/orders', { table: 2, items: [{ dishId: dish.id, qty: 1 }] });
+  assert.equal(entered.body.enteredBy, 'wait1');
+
+  // The last owner stays; a switched-off account is signed out at once.
+  const { body: list } = await call('GET', '/admin/staff', null, { admin: true });
+  const owner = list.staff.find((x) => x.role === 'owner');
+  assert.equal((await call('PUT', `/admin/staff/${owner.id}`, { role: 'waiter' }, { admin: true })).status, 409);
+  const w = list.staff.find((x) => x.username === 'wait1');
+  assert.equal((await call('PUT', `/admin/staff/${w.id}`, { active: false }, { admin: true })).status, 200);
+  assert.equal((await waiter('GET', '/admin/orders')).status, 401);
+  assert.equal((await signIn('wait1', 'password-wait1')).status, 401);
+  assert.equal((await call('DELETE', `/admin/staff/${w.id}`, null, { admin: true })).status, 200);
+});
+
 test('categories are reordered in one step', async () => {
   const before = (await call('GET', '/menu')).body.categories.map((c) => c.id);
   const reversed = before.slice().reverse();

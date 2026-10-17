@@ -9,6 +9,20 @@ export const loginSchema = z.object({
   password: z.string().min(1).max(200)
 });
 
+const role = z.enum(['owner', 'manager', 'waiter', 'kitchen']);
+export const staffAddSchema = z.object({
+  name: text(40).min(1, 'Name is required'),
+  username: z.string().trim().toLowerCase().min(3, 'Use at least 3 letters for the username').max(40).regex(/^[a-z0-9._-]+$/, 'Usernames use letters, numbers, dots and dashes only'),
+  role,
+  password: z.string().min(8, 'Use at least 8 characters for the password').max(200)
+});
+export const staffChangeSchema = z.object({
+  name: text(40).min(1).optional(),
+  role: role.optional(),
+  active: z.boolean().optional(),
+  password: z.string().min(8, 'Use at least 8 characters for the password').max(200).optional()
+});
+
 export const passwordSchema = z.object({
   current: z.string().min(1).max(200),
   next: z.string().min(8, 'Use at least 8 characters').max(200)

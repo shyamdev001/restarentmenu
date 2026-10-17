@@ -82,6 +82,9 @@ const orderSchema = new Schema({
   spunAt: Date,
   prize: { label: String, win: Boolean },
   rating: { stars: { type: Number, min: 1, max: 5 }, comment: { type: String, trim: true, maxlength: 300 }, at: Date },
+  // Who did what: the staff member who entered it (if any), and each step with who took it.
+  enteredBy: String,
+  trail: [{ _id: false, status: String, by: String, at: Date }],
   settled: { type: Boolean, default: false },     // the table has paid: no longer part of anyone's bill
   clientKey: { type: String }                     // made by the guest's phone, so a retried send is not a second order
 }, jsonOptions);
@@ -131,9 +134,13 @@ const secretSchema = new Schema({
 });
 
 /* ------------------------------------ Admin ----------------------------------- */
+// Everyone who signs in to the admin panel. The role decides what they may do (see services/staff.js).
 const adminSchema = new Schema({
+  name: { type: String, trim: true, maxlength: 40 },
   username: { type: String, required: true, unique: true, trim: true, lowercase: true },
-  passwordHash: { type: String, required: true }
+  passwordHash: { type: String, required: true },
+  role: { type: String, enum: ['owner', 'manager', 'waiter', 'kitchen'], default: 'owner' },
+  active: { type: Boolean, default: true }
 }, jsonOptions);
 
 export const Setting = model('Setting', settingSchema);
