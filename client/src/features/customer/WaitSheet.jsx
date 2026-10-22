@@ -140,8 +140,10 @@ export default function WaitSheet({
     .sort((a, b) => a.prepMin - b.prepMin || a.price - b.price).slice(0, 3);
 
   const game = settings.game;
-  const spun = orders.find((o) => o.prize);
-  const tableSpun = orders.some((o) => o.spun);
+  // The table has one spin per visit; another phone at the table may have taken it.
+  const spun = orders.find((o) => o.prize) || orders.find((o) => o.tableSpin?.prize)?.tableSpin;
+  const tableSpun = orders.some((o) => o.spun || o.tableSpin?.spun);
+  const spunHere = !!orders.find((o) => o.prize);
 
   if (!focus) {
     return (
@@ -197,9 +199,9 @@ export default function WaitSheet({
 
         {spun?.prize && (
           <section className={'c-wait__block c-prize' + (spun.prize.win ? ' is-win' : '')}>
-            <h3>{spun.prize.win ? 'You won' : 'The wheel says'}</h3>
+            <h3>{spun.prize.win ? (spunHere ? 'You won' : 'Your table won') : 'The wheel says'}</h3>
             <p className="c-prize__label">{spun.prize.label}</p>
-            <p className="c-muted c-wait__small">{spun.prize.win ? 'Show this to your server. They can see it on your order too.' : 'Thank you for playing. Better luck next visit.'}</p>
+            <p className="c-muted c-wait__small">{spun.prize.win ? (spunHere ? 'Show this to your server. They can see it on your order too.' : 'Someone else at your table spun the wheel. Your server can see the prize on the order.') : 'Thank you for playing. Better luck next visit.'}</p>
           </section>
         )}
         {game?.on && !tableSpun && !cancelled && (

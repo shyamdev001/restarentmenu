@@ -4,6 +4,7 @@ import Icon from '../../components/Icon.jsx';
 import { useConfirm } from '../../components/Confirm.jsx';
 import { money, tableName, timeAgo } from '../../lib/format.js';
 import NewOrder from './NewOrder.jsx';
+import Receipt from './Receipt.jsx';
 
 const COLUMNS = [
   { status: 'new', title: 'New', next: 'cooking', action: 'Start cooking', needs: 'cook' },
@@ -11,19 +12,46 @@ const COLUMNS = [
   { status: 'ready', title: 'Ready to serve', next: 'served', action: 'Served', needs: 'serve' }
 ];
 
-function OrderCard({ order, column, currency, onStatus, can }) {
+/**
+ * One order on the board. Staff who may cancel can also take dishes off an
+ * order that is not ready yet: tap Change, lower the numbers, save.
+ */
+function OrderCard({ order, column, currency, onStatus, can, others, setError }) {
+  const [trim, setTrim] = useState(null);   // the quantities while changing, one per line
+  const [saving, setSaving] = useState(false);
+  const changeable = can('cancel') && (order.status === 'new' || order.status === 'cooking');
+  useEffect(() => { if (!changeable) setTrim(null); }, [changeable]);
+
+  const subtotal = trim ? order.items.reduce((n, item, i) => n + item.unitPrice * trim[i], 0) : order.subtotal;
+  const left = trim ? trim.reduce((n, q) => n + q, 0) : 1;
+  const save = async () => {
+    const items = trim.map((qty, index) => ({ index, qty })).filter(({ index, qty }) => qty !== order.items[index].qty);
+    if (!items.length) { setTrim(null); return; }
+    setSaving(true);
+    try { await api.patch(`/admin/orders/${order.id}/items`, { items }); setTrim(null); }
+    catch (e) { setError(e.message); }
+    finally { setSaving(false); }
+  };
+
   return (
-    <article className={'a-card a-order' + (order.status === 'new' ? ' is-new' : '')}>
+    <article className={'a-card a-order' + (order.status === 'new' ? ' is-new' : '') + (trim ? ' is-changing' : '')}>
       <div className="a-order__top">
         <b>{tableName(order.table)}</b>
         <span className="a-muted a-small">#{order.number} · {timeAgo(order.createdAt)}{order.source === 'staff' ? ` · by ${order.enteredBy || 'staff'}` : ''}</span>
+        {others > 0 && <span className="a-sibling">{others + 1} orders from this table</span>}
       </div>
       <ul>
         {order.items.map((item, i) => {
           const extras = [item.spice, ...item.addons.map((a) => '+ ' + a.name)].filter(Boolean).join(' · ');
           return (
-            <li key={i}>
-              <b>{item.qty} ×</b> {item.name}
+            <li key={i} className={trim && trim[i] === 0 ? 'is-removed' : ''}>
+              {trim ? (
+                <span className="a-trim" role="group" aria-label={`How many ${item.name}`}>
+                  <button type="button" className="a-trim__btn" aria-label={`One less ${item.name}`} disabled={trim[i] === 0} onClick={() => setTrim(trim.map((q, n) => (n === i ? q - 1 : q)))}>−</button>
+                  <b>{trim[i]}</b>
+                  <button type="button" className="a-trim__btn" aria-label={`One more ${item.name}`} disabled={trim[i] >= item.qty} onClick={() => setTrim(trim.map((q, n) => (n === i ? q + 1 : q)))}>+</button>
+                </span>
+              ) : <b>{item.qty} ×</b>} {item.name}
               {extras && <small>{extras}</small>}
               {item.note && <small>Note: “{item.note}”</small>}
             </li>
@@ -31,11 +59,21 @@ function OrderCard({ order, column, currency, onStatus, can }) {
         })}
       </ul>
       {order.prize?.win && <div className="a-prize"><Icon name="star" size={14} />Won on the wheel: {order.prize.label}</div>}
-      <div className="a-muted a-small">Total {money(order.total, currency)} incl. tax</div>
-      <div className="a-order__foot">
-        {can(column.needs) && <button className="a-btn is-gold" onClick={() => onStatus(order, column.next)}>{column.action}</button>}
-        {can('cancel') && (order.status === 'new' || order.status === 'cooking') && <button className="a-btn is-danger" onClick={() => onStatus(order, 'cancelled')}>Cancel</button>}
+      <div className="a-muted a-small">
+        {trim ? `New total ${money(subtotal * (1 + order.taxPercent / 100), currency)} incl. tax` : `Total ${money(order.total, currency)} incl. tax`}
       </div>
+      {trim ? (
+        <div className="a-order__foot">
+          <button className={'a-btn ' + (left ? 'is-gold' : 'is-danger')} disabled={saving} onClick={save}>{saving ? 'Saving…' : left ? 'Save changes' : 'Cancel the whole order'}</button>
+          <button className="a-btn" disabled={saving} onClick={() => setTrim(null)}>Keep as it was</button>
+        </div>
+      ) : (
+        <div className="a-order__foot">
+          {can(column.needs) && <button className="a-btn is-gold" onClick={() => onStatus(order, column.next)}>{column.action}</button>}
+          {changeable && <button className="a-btn" onClick={() => setTrim(order.items.map((i) => i.qty))}><Icon name="pen" size={15} />Change</button>}
+          {can('cancel') && (order.status === 'new' || order.status === 'cooking') && <button className="a-btn is-danger" onClick={() => onStatus(order, 'cancelled')}>Cancel</button>}
+        </div>
+      )}
     </article>
   );
 }
@@ -65,12 +103,23 @@ export default function OrdersBoard({ can, orders, calls, stats, settings, setEr
     });
     if (yes) api.post(`/admin/tables/${t.table}/settle`).then(loadTables).catch((e) => setError(e.message));
   };
+  // Printing a table's bill, and moving a party to another table.
+  const [printing, setPrinting] = useState(null);
+  const [moving, setMoving] = useState(null);   // { from, to }
+  const move = async (e) => {
+    e.preventDefault();
+    try { await api.post(`/admin/tables/${moving.from}/move`, { to: Number(moving.to) }); setMoving(null); loadTables(); }
+    catch (err) { setError(err.message); }
+  };
+  // How many orders are live at each table, so a second ticket from the same table says so.
+  const liveAt = orders.reduce((map, o) => (['new', 'cooking', 'ready'].includes(o.status) && o.table > 0 ? map.set(o.table, (map.get(o.table) || 0) + 1) : map), new Map());
   const doneCall = (call) => api.patch(`/admin/calls/${call.id}`).catch((e) => setError(e.message));
   const history = orders.filter((o) => o.status === 'served' || o.status === 'cancelled').slice(0, 30);
 
   return (
     <>
       {dialog}
+      {printing !== null && <Receipt table={printing} settings={settings} onClose={() => setPrinting(null)} />}
       {entering && <NewOrder menu={menu} settings={settings} onClose={() => setEntering(false)} onSent={() => setEntering(false)} onSending={onSending} />}
       <div className="a-title">
         <h1>Live <em>orders</em></h1>
@@ -102,10 +151,32 @@ export default function OrdersBoard({ can, orders, calls, stats, settings, setEr
           <h2 className="a-sub" style={{ marginBottom: 12 }}><Icon name="receipt" />Open tables</h2>
           <div className="a-tables">
             {openTables.map((t) => (
-              <div key={t.table} className="a-opentable">
-                <span><b>{tableName(t.table)}</b><small>{t.orders} {t.orders === 1 ? 'order' : 'orders'}{t.active ? ` · ${t.active} in the kitchen` : ' · all served'}</small></span>
+              <div key={t.table} className={'a-opentable' + (t.parties > 1 ? ' is-stale' : '')}>
+                <span className="a-opentable__who"><b>{tableName(t.table)}</b><small>{t.orders} {t.orders === 1 ? 'order' : 'orders'}{t.active ? ` · ${t.active} in the kitchen` : ' · all served'}</small>
+                  {t.parties > 1 && <small className="a-opentable__warn">Includes an earlier party that was not marked paid</small>}
+                </span>
                 <strong>{money(t.total, currency)}</strong>
-                {can('settle') && <button className="a-btn" disabled={t.active > 0} onClick={() => markPaid(t)}>Mark paid</button>}
+                {can('settle') && (
+                  <span className="a-opentable__tools">
+                    <button className="a-btn" onClick={() => setPrinting(t.table)}><Icon name="print" size={15} />Bill</button>
+                    {t.table > 0 && <button className="a-btn" aria-expanded={moving?.from === t.table} onClick={() => setMoving(moving?.from === t.table ? null : { from: t.table, to: '' })}>Move</button>}
+                    <button className="a-btn is-gold" disabled={t.active > 0} title={t.active ? 'Wait until everything is served' : undefined} onClick={() => markPaid(t)}>Mark paid</button>
+                  </span>
+                )}
+                {moving?.from === t.table && (
+                  <form className="a-opentable__move" onSubmit={move}>
+                    <label className="a-label">Move this party to
+                      <select required value={moving.to} onChange={(e) => setMoving({ ...moving, to: e.target.value })}>
+                        <option value="" disabled>Choose a table</option>
+                        {Array.from({ length: settings.tables }, (_, i) => i + 1).filter((n) => n !== t.table).map((n) => (
+                          <option key={n} value={n}>Table {n}{openTables.some((x) => x.table === n) ? ' (has guests: join them)' : ''}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <button className="a-btn is-gold">Move</button>
+                    <button type="button" className="a-btn" onClick={() => setMoving(null)}>Cancel</button>
+                  </form>
+                )}
               </div>
             ))}
           </div>
@@ -118,7 +189,7 @@ export default function OrdersBoard({ can, orders, calls, stats, settings, setEr
           return (
             <section key={column.status} className="a-col" aria-label={column.title}>
               <h2 className="a-sub">{column.title}{list.length > 0 && <span className="a-badge">{list.length}</span>}</h2>
-              {list.map((o) => <OrderCard key={o.id} order={o} column={column} currency={currency} onStatus={setStatus} can={can} />)}
+              {list.map((o) => <OrderCard key={o.id} order={o} column={column} currency={currency} onStatus={setStatus} can={can} others={(liveAt.get(o.table) || 1) - 1} setError={setError} />)}
               {!list.length && <div className="a-empty">Nothing here.</div>}
             </section>
           );

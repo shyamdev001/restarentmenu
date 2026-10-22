@@ -8,6 +8,7 @@
     "dev": "nodemon --watch src src/server.js",
     "start": "node src/server.js",
     "seed": "node src/seed/seed.js --reset",
+    "reset-password": "node scripts/reset-password.js",
     "test": "node --test test/api.test.js"
   },
   "dependencies": {

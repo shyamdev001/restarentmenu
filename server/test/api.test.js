@@ -13,7 +13,7 @@ const { connectDb } = await import('../src/config/db.js');
 const { createApp } = await import('../src/app.js');
 const { ensureSeed } = await import('../src/seed/seed.js');
 const { env } = await import('../src/config/env.js');
-const { Order, ServiceCall, Dish } = await import('../src/models/index.js');
+const { Order, ServiceCall, Dish, TableVisit, Admin } = await import('../src/models/index.js');
 
 let server; let url; let cookie = ''; let codes = {}; let dish;
 
@@ -42,13 +42,19 @@ before(async () => {
     body: JSON.stringify({ username: env.adminUsername, password: env.adminPassword })
   });
   cookie = login.headers.get('set-cookie').split(';')[0];
+  // A new install's owner must choose their own password before anything else.
+  assert.equal((await login.json()).mustChange, true);
+  assert.equal((await call('GET', '/admin/orders', null, { admin: true })).status, 403);
+  assert.equal((await call('PUT', '/auth/password', { current: env.adminPassword, next: env.adminPassword + '-x' }, { admin: true })).status, 200);
   codes = (await call('GET', '/admin/table-codes', null, { admin: true })).body.codes;
 
   // The QR rule is off on a new install. Most tests here are about that rule, so switch it on.
   const fresh = (await call('GET', '/menu')).body.settings;
   assert.equal(fresh.requireQr, false, 'a new install takes orders from any link');
   const { name, tagline, welcome, currency, taxPercent, tables, publicUrl } = (await call('GET', '/admin/settings', null, { admin: true })).body;
-  await call('PUT', '/admin/settings', { name, tagline, welcome, currency, taxPercent, tables, publicUrl, requireQr: true }, { admin: true });
+  // More tables than the sample menu has, so each test can use a table of its own.
+  await call('PUT', '/admin/settings', { name, tagline, welcome, currency, taxPercent, tables: Math.max(tables, 30), publicUrl, requireQr: true }, { admin: true });
+  codes = (await call('GET', '/admin/table-codes', null, { admin: true })).body.codes;
   dish = (await Dish.findOne({ available: true, 'addons.0': { $exists: true } })).toJSON();
 });
 
@@ -161,16 +167,27 @@ test('the bill is for the whole table, until the table pays', async () => {
   assert.equal(mine.body[0].settled, true);
 });
 
-test('a table left unpaid closes itself after three quiet hours', async () => {
-  const { closeQuietTables } = await import('../src/services/tables.js');
+test('a new party at a table nobody marked paid starts with a clean bill', async () => {
+  const { liveVisit } = await import('../src/services/tables.js');
   const placed = await call('POST', '/orders', basket(10));
   const order = await Order.findOne({ publicId: placed.body.id });
   for (const status of ['cooking', 'ready', 'served']) await call('PATCH', `/admin/orders/${order.id}`, { status }, { admin: true });
 
-  await closeQuietTables(Date.now() + 2 * 3600 * 1000);
-  assert.equal((await Order.findById(order.id)).settled, false, 'two hours on, the bill is still open');
-  await closeQuietTables(Date.now() + 4 * 3600 * 1000);
-  assert.equal((await Order.findById(order.id)).settled, true, 'four hours on, the table has been closed');
+  assert.ok(await liveVisit(10, Date.now() + 60 * 60 * 1000), 'an hour after the food, the party is still at the table');
+  assert.equal(await liveVisit(10, Date.now() + 2 * 3600 * 1000), null, 'two quiet hours on, the table is free');
+
+  // Two hours pass, then new guests sit down and order.
+  const past = new Date(Date.now() - 2 * 3600 * 1000);
+  await Order.collection.updateMany({ table: 10 }, { $set: { updatedAt: past } });
+  await TableVisit.updateOne({ table: 10 }, { openedAt: past });
+  const next = await call('POST', '/orders', basket(10));
+  const bill = (await call('GET', `/tables/10/bill?code=${codes[10]}`)).body;
+  assert.deepEqual(bill.map((o) => o.number), [next.body.number], 'they do not see the last party\'s meal');
+  assert.equal((await Order.findById(order.id)).settled, false, 'nothing is marked paid behind the staff\'s back');
+  const open = (await call('GET', '/admin/tables/open', null, { admin: true })).body.find((t) => t.table === 10);
+  assert.equal(open.orders, 2);
+  assert.equal(open.parties, 2, 'staff see that an earlier party was never marked paid');
+  assert.equal((await call('GET', '/admin/tables/10/bill', null, { admin: true })).body.length, 2, 'the printed bill has everything unpaid');
 });
 
 test('the wheel gives one spin per table, and a meal is rated once after it is served', async () => {
@@ -190,6 +207,9 @@ test('the wheel gives one spin per table, and a meal is rated once after it is s
   assert.deepEqual(both.map((r) => r.status).sort(), [200, 409], 'two phones tapping together: only one spin');
   const won = both.find((r) => r.status === 200).body;
   assert.equal(won.order.prize.label, prizes[won.index].label);
+  const other = won.order.id === a.body.id ? b.body.id : a.body.id;
+  const seen = (await call('GET', `/orders?ids=${other}`)).body[0].tableSpin;
+  assert.equal(seen.prize.label, won.order.prize.label, 'the other phone at the table sees what the table won');
   assert.equal((await call('POST', `/orders/${a.body.id}/spin`)).status, 409);
 
   // The order behind another one knows it is second in line.
@@ -214,7 +234,15 @@ test('the wheel gives one spin per table, and a meal is rated once after it is s
 test('staff roles decide who can do what', async () => {
   const signIn = async (username, password) => {
     const r = await fetch(url + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
-    return { status: r.status, cookie: r.headers.get('set-cookie')?.split(';')[0], body: await r.json() };
+    const out = { status: r.status, cookie: r.headers.get('set-cookie')?.split(';')[0], body: await r.json() };
+    // The owner chose this password: the person picks their own before they can do anything.
+    if (out.body.mustChange) {
+      const blocked = await fetch(url + '/api/admin/orders', { headers: { cookie: out.cookie } });
+      assert.equal(blocked.status, 403);
+      const own = await fetch(url + '/api/auth/password', { method: 'PUT', headers: { 'Content-Type': 'application/json', cookie: out.cookie }, body: JSON.stringify({ current: password, next: password + '-own' }) });
+      assert.equal(own.status, 200);
+    }
+    return out;
   };
   const as = (who) => async (method, path, body) => {
     const r = await fetch(url + '/api' + path, { method, headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), cookie: who }, body: body ? JSON.stringify(body) : undefined });
@@ -256,7 +284,7 @@ test('staff roles decide who can do what', async () => {
   const w = list.staff.find((x) => x.username === 'wait1');
   assert.equal((await call('PUT', `/admin/staff/${w.id}`, { active: false }, { admin: true })).status, 200);
   assert.equal((await waiter('GET', '/admin/orders')).status, 401);
-  assert.equal((await signIn('wait1', 'password-wait1')).status, 401);
+  assert.equal((await signIn('wait1', 'password-wait1-own')).status, 401);
   assert.equal((await call('DELETE', `/admin/staff/${w.id}`, null, { admin: true })).status, 200);
 });
 
@@ -356,4 +384,56 @@ test('history lists today, and the QR rule can be switched off', async () => {
   const saved = await call('PUT', '/admin/settings', { name, tagline, welcome, currency, taxPercent, tables, publicUrl, requireQr: false }, { admin: true });
   assert.equal(saved.status, 200);
   assert.equal((await call('POST', '/orders', { table: 9, items: [{ dishId: dish.id, qty: 1 }] })).status, 201);
+});
+
+test('staff can take dishes off an order, and the totals follow', async () => {
+  const placed = await call('POST', '/orders', { table: 14, code: codes[14], items: [{ dishId: dish.id, qty: 3 }, { dishId: dish.id, qty: 1, spice: 'Mild' }] });
+  const order = await Order.findOne({ publicId: placed.body.id });
+  assert.equal((await call('PATCH', `/admin/orders/${order.id}/items`, { items: [{ index: 0, qty: 5 }] }, { admin: true })).status, 400, 'only fewer');
+  const trimmed = await call('PATCH', `/admin/orders/${order.id}/items`, { items: [{ index: 0, qty: 1 }] }, { admin: true });
+  assert.equal(trimmed.status, 200);
+  assert.equal(trimmed.body.subtotal, dish.price * 2);
+  assert.equal(trimmed.body.total, Math.round(dish.price * 2 * 1.05 * 100) / 100);
+  assert.equal(trimmed.body.trail.at(-1).status, 'edited');
+  const gone = await call('PATCH', `/admin/orders/${order.id}/items`, { items: [{ index: 0, qty: 0 }, { index: 1, qty: 0 }] }, { admin: true });
+  assert.equal(gone.body.status, 'cancelled', 'nothing left: the order is cancelled');
+  assert.equal((await call('PATCH', `/admin/orders/${order.id}/items`, { items: [{ index: 0, qty: 0 }] }, { admin: true })).status, 409);
+});
+
+test('a party can move to another table, and joins whoever is there', async () => {
+  const a = await call('POST', '/orders', basket(15));
+  await call('POST', '/calls', { table: 15, type: 'waiter', code: codes[15] });
+  const b = await call('POST', '/orders', basket(16));
+  assert.equal((await call('POST', '/admin/tables/15/move', { to: 999 }, { admin: true })).status, 400);
+  assert.equal((await call('POST', '/admin/tables/15/move', { to: 16 }, { admin: true })).status, 200);
+  const bill = (await call('GET', `/tables/16/bill?code=${codes[16]}`)).body.map((o) => o.number).sort();
+  assert.deepEqual(bill, [a.body.number, b.body.number].sort(), 'one bill for the joined party');
+  assert.equal((await call('GET', `/tables/15/bill?code=${codes[15]}`)).body.length, 0);
+  assert.equal(await ServiceCall.countDocuments({ table: 16, status: 'open' }), 1, 'the call followed them');
+  assert.equal((await call('POST', '/admin/tables/15/move', { to: 17 }, { admin: true })).status, 404, 'nothing left to move');
+});
+
+test('a flood of orders from one table is held back', async () => {
+  const sent = [];
+  for (let i = 0; i < 7; i += 1) sent.push((await call('POST', '/orders', basket(18))).status);
+  assert.deepEqual(sent, [201, 201, 201, 201, 201, 201, 429]);
+  const staff = await call('POST', '/admin/orders', { table: 18, items: [{ dishId: dish.id, qty: 1 }] }, { admin: true });
+  assert.equal(staff.status, 201, 'staff can still enter orders for the table');
+});
+
+test('a locked-out owner gets back in with a one-time reset', async () => {
+  const { resetOwnerFromEnv } = await import('../src/services/staff.js');
+  process.env.RESET_OWNER_PASSWORD = 'reset-pass-123';
+  await resetOwnerFromEnv();
+  const signIn = (password) => fetch(url + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: env.adminUsername, password }) });
+  const r = await signIn('reset-pass-123');
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).mustChange, true, 'they must choose a new one at once');
+  const back = r.headers.get('set-cookie').split(';')[0];
+  const own = await fetch(url + '/api/auth/password', { method: 'PUT', headers: { 'Content-Type': 'application/json', cookie: back }, body: JSON.stringify({ current: 'reset-pass-123', next: 'my-own-pass-456' }) });
+  assert.equal(own.status, 200);
+  await resetOwnerFromEnv(); // the server restarts with the variable still set
+  assert.equal((await signIn('my-own-pass-456')).status, 200, 'leaving the variable set does not undo their new password');
+  delete process.env.RESET_OWNER_PASSWORD;
+  assert.equal((await Admin.findOne({ username: env.adminUsername.toLowerCase() })).mustChange, false);
 });

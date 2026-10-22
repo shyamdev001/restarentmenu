@@ -52,7 +52,7 @@ function Person({ s, me, roles, busy, onChange, onRemove }) {
     if (password) patch.password = password;
     if (!Object.keys(patch).length) { setEditing(false); return; }
     const ok = await onChange(s, patch, patch.password
-      ? `${patch.name || s.name}'s new password is "${password}". Tell them, then they can change it under My account.`
+      ? (self ? 'Your password is changed.' : `${patch.name || s.name}'s temporary password is "${password}". Tell them: they choose their own when they next sign in.`)
       : `Saved ${patch.name}.`);
     if (ok) { setEditing(false); setPassword(''); }
   };
@@ -163,7 +163,7 @@ export default function StaffPage({ me }) {
     try {
       const made = await api.post('/admin/staff', { ...form, name: form.name.trim() });
       setStaff((list) => [...(list || []), made]);
-      say('ok', `${made.name} can now sign in with username "${made.username}" and password "${form.password}". Tell them, then they can change it under My account.`, true);
+      say('ok', `${made.name} can sign in with username "${made.username}" and temporary password "${form.password}". They choose their own the first time they sign in.`, true);
       setForm({ name: '', username: '', role: form.role, password: '' });
       setAdding({ busy: false, error: '' });
     } catch (err) { setAdding({ busy: false, error: err.message }); }
@@ -231,7 +231,7 @@ export default function StaffPage({ me }) {
         <div className="a-label is-wide">
           <label htmlFor="st-pass">Password</label>
           <PasswordInput id="st-pass" value={form.password} onChange={(password) => setForm({ ...form, password })} />
-          <span className="a-hint">At least 8 characters. Tap Suggest for one that is easy to read out.</span>
+          <span className="a-hint">A temporary one, at least 8 characters: they choose their own at first sign-in. Tap Suggest for one that is easy to read out.</span>
         </div>
         {adding.error && <p className="a-error is-wide" role="alert">{adding.error}</p>}
         <div className="is-wide"><button className="a-btn is-gold" disabled={adding.busy}><Icon name="plus" size={16} />{adding.busy ? 'Adding…' : `Add ${form.name.trim() || 'to staff'}`}</button></div>

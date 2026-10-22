@@ -4,7 +4,7 @@ import { createOrder, toPublicOrder } from '../services/order.service.js';
 import { realtime } from '../services/socket.js';
 import { push, publicKey, removeSubscription, saveSubscription } from '../services/push.js';
 import { assertTable, openOrders } from '../services/tables.js';
-import { ordersAhead, publicGame, rate, spin } from '../services/waiting.js';
+import { ordersAhead, publicGame, rate, spin, tableSpins } from '../services/waiting.js';
 
 /** GET /api/menu : everything the customer app needs in one request. */
 export const getMenu = asyncHandler(async (_req, res) => {
@@ -33,10 +33,12 @@ export const placeOrder = asyncHandler(async (req, res) => {
 export const getOrders = asyncHandler(async (req, res) => {
   const ids = String(req.query.ids || '').split(',').filter((id) => /^[a-f0-9]{24}$/.test(id)).slice(-30);
   const orders = ids.length ? await Order.find({ publicId: { $in: ids } }).sort({ createdAt: 1 }) : [];
-  // For an order still in the kitchen, say how many the cooks will reach first.
+  const spins = await tableSpins(orders);
+  // For an order still in the kitchen, say how many the cooks will reach first; and whether the table has had its spin.
   res.json(await Promise.all(orders.map(async (o) => ({
     ...toPublicOrder(o),
-    ahead: ['new', 'cooking'].includes(o.status) ? await ordersAhead(o) : 0
+    ahead: ['new', 'cooking'].includes(o.status) ? await ordersAhead(o) : 0,
+    tableSpin: spins.get(o.visit) || null
   }))));
 });
 

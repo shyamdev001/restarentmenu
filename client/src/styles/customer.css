@@ -845,3 +845,8 @@
   .c-art__line { stroke-dashoffset: 0; }
   .c-art__steam { opacity: 0.5; }
 }
+
+/* The bill, split by phone when several at one table have ordered */
+.c-billgroup { padding-bottom: 6px; }
+.c-billgroup + .c-billgroup { margin-top: 10px; }
+.c-billgroup__head { display: flex; justify-content: space-between; gap: 12px; margin: 14px 0 2px; font: 600 11px var(--sans); letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold); }

@@ -55,8 +55,11 @@ export async function spin(publicId) {
   if (!game.on) throw new ApiError(403, 'The wheel is not running today.');
   if (order.status === 'cancelled') throw ApiError.conflict('This order was cancelled.');
 
-  // Claim the table's one spin in a single step, so two phones tapping together cannot both win.
-  const first = await Order.findOne({ table: order.table, settled: false, status: { $ne: 'cancelled' } }).sort({ createdAt: 1 });
+  if (order.table === 0) throw ApiError.badRequest('The wheel is for guests at a table.');
+
+  // Claim the visit's one spin in a single step, so two phones tapping together cannot both win.
+  const party = order.visit ? { visit: order.visit } : { settled: false };
+  const first = await Order.findOne({ table: order.table, ...party, status: { $ne: 'cancelled' } }).sort({ createdAt: 1 });
   const claimed = await Order.findOneAndUpdate({ _id: first._id, spunAt: { $exists: false } }, { spunAt: new Date() }, { new: true });
   if (!claimed) throw ApiError.conflict('Your table has already had its spin this visit.');
 
@@ -85,4 +88,15 @@ export async function rate(publicId, { stars, comment }) {
   );
   if (!saved) throw ApiError.conflict('Thank you, you have already rated this order.');
   return saved;
+}
+
+/**
+ * What each phone at a table should know about the table's spin, even if
+ * another phone took it: whether it has gone, and what it won.
+ */
+export async function tableSpins(orders) {
+  const visits = [...new Set(orders.map((o) => o.visit).filter(Boolean))];
+  if (!visits.length) return new Map();
+  const spun = await Order.find({ visit: { $in: visits }, spunAt: { $exists: true } }, 'visit prize number');
+  return new Map(spun.map((o) => [o.visit, { spun: true, by: o.number, prize: o.prize?.label ? { label: o.prize.label, win: !!o.prize.win } : null }]));
 }

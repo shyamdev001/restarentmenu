@@ -35,7 +35,11 @@ export async function ensureSeed({ reset = false } = {}) {
   }
 
   if (!(await Admin.exists({}))) {
-    await Admin.create({ username: env.adminUsername.toLowerCase(), passwordHash: await bcrypt.hash(env.adminPassword, 12) });
+    await Admin.create({
+      username: env.adminUsername.toLowerCase(), name: 'Owner', role: 'owner',
+      passwordHash: await bcrypt.hash(env.adminPassword, 12),
+      mustChange: true   // whoever installs it signs in once with this password, then chooses their own
+    });
     console.log(`Admin account created: "${env.adminUsername}". Change the password after signing in.`);
   }
 

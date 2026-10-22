@@ -33,6 +33,7 @@ a.use(requireAdmin);
 a.get('/orders', allow('orders'), admin.listOrders);
 a.post('/orders', allow('enter'), validate(s.staffOrderSchema), admin.createStaffOrder);
 a.patch('/orders/:id', allow('orders'), validate(s.statusSchema), admin.updateOrderStatus);
+a.patch('/orders/:id/items', allow('cancel'), validate(s.trimSchema), admin.trimOrderItems);
 a.get('/stats', allow('orders'), admin.getStats);
 a.get('/reports', allow('reports'), admin.report);
 a.get('/reports/export', allow('reports'), admin.reportCsv);
@@ -41,6 +42,8 @@ a.get('/history/:day', allow('reports'), admin.historyDay);
 
 a.get('/tables/open', allow('orders'), admin.listOpenTables);
 a.post('/tables/:table/settle', allow('settle'), admin.settle);
+a.get('/tables/:table/bill', allow('settle'), admin.tableBillForStaff);
+a.post('/tables/:table/move', allow('settle'), validate(s.moveSchema), admin.moveToTable);
 a.get('/table-codes', allow('qr'), admin.tableCodes);
 
 a.get('/calls', allow('orders'), admin.listCalls);

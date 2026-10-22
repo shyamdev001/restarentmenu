@@ -93,6 +93,13 @@ export const gameSchema = z.object({
 
 export const statusSchema = z.object({ status: z.enum(ORDER_STATUSES) });
 
+// Taking dishes off an order: each changed line and its new, lower quantity (0 removes it).
+export const trimSchema = z.object({
+  items: z.array(z.object({ index: z.number().int().min(0).max(39), qty: z.number().int().min(0).max(20) })).min(1).max(40)
+});
+
+export const moveSchema = z.object({ to: z.coerce.number().int().min(1).max(500) });
+
 export const reorderSchema = z.object({ ids: z.array(objectId).min(1).max(200) });
 
 export const categorySchema = z.object({
@@ -130,5 +137,9 @@ export const settingsSchema = z.object({
   taxPercent: z.coerce.number().min(0).max(50),
   tables: z.coerce.number().int().min(1).max(500),
   publicUrl: z.string().trim().max(200).regex(/^(https?:\/\/[^\s]+)?$/, 'Must start with http:// or https://').default(''),
-  requireQr: z.boolean().default(false)
+  requireQr: z.boolean().default(false),
+  address: text(160).default(''),
+  phone: text(30).default(''),
+  gstin: z.string().trim().toUpperCase().regex(/^([0-9A-Z]{15})?$/, 'A GSTIN is 15 letters and numbers').default(''),
+  billNote: text(120).default('')
 });

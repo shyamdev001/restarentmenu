@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { Admin } from '../models/index.js';
 import { env } from '../config/env.js';
 import { ApiError, asyncHandler } from '../utils/ApiError.js';
-import { publicStaff } from '../services/staff.js';
+import { DEFAULT_PASSWORD, publicStaff } from '../services/staff.js';
 import { COOKIE_NAME } from '../middleware/index.js';
 
 const SESSION_HOURS = 12;
@@ -42,7 +42,10 @@ export const changePassword = asyncHandler(async (req, res) => {
   if (!admin || !(await bcrypt.compare(req.body.current, admin.passwordHash))) {
     throw ApiError.badRequest('Current password is wrong.');
   }
+  if (req.body.next === req.body.current) throw ApiError.badRequest('Choose a password different from the current one.');
+  if (req.body.next === DEFAULT_PASSWORD) throw ApiError.badRequest('That is the password every new install starts with. Choose your own.');
   admin.passwordHash = await bcrypt.hash(req.body.next, 12);
+  admin.mustChange = false;
   await admin.save();
-  res.json({ ok: true });
+  res.json(publicStaff(admin));
 });

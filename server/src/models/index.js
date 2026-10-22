@@ -19,6 +19,11 @@ const settingSchema = new Schema({
     prizes: [{ _id: false, label: { type: String, trim: true, maxlength: 30 }, weight: { type: Number, min: 1, max: 100 }, win: { type: Boolean, default: true } }]
   },
   requireQr: { type: Boolean, default: false },  // only take orders that come from a scanned table QR code (off until the owner turns it on)
+  // What the printed bill shows under the name. The tax is split into CGST and SGST when a GSTIN is set.
+  address: { type: String, default: '', trim: true },
+  phone: { type: String, default: '', trim: true },
+  gstin: { type: String, default: '', trim: true, uppercase: true },
+  billNote: { type: String, default: '', trim: true },
   orderCounter: { type: Number, default: 100 }
 }, jsonOptions);
 
@@ -86,10 +91,12 @@ const orderSchema = new Schema({
   enteredBy: String,
   trail: [{ _id: false, status: String, by: String, at: Date }],
   settled: { type: Boolean, default: false },     // the table has paid: no longer part of anyone's bill
+  visit: { type: String },                        // the party at the table (see services/tables.js): one bill, one spin
   clientKey: { type: String }                     // made by the guest's phone, so a retried send is not a second order
 }, jsonOptions);
 orderSchema.index({ createdAt: -1 });
 orderSchema.index({ table: 1, settled: 1 });
+orderSchema.index({ table: 1, visit: 1 });
 orderSchema.index({ clientKey: 1 }, { unique: true, partialFilterExpression: { clientKey: { $type: 'string' } } });
 
 /* -------------------------------- Service calls ------------------------------- */
@@ -140,8 +147,18 @@ const adminSchema = new Schema({
   username: { type: String, required: true, unique: true, trim: true, lowercase: true },
   passwordHash: { type: String, required: true },
   role: { type: String, enum: ['owner', 'manager', 'waiter', 'kitchen'], default: 'owner' },
-  active: { type: Boolean, default: true }
+  active: { type: Boolean, default: true },
+  // Set when someone else chose the password (the first owner, or a new member of staff): they pick their own at first sign-in.
+  mustChange: { type: Boolean }
 }, jsonOptions);
+
+/* --------------------------------- Table visits -------------------------------- */
+// Which party is sitting at each table now. One small document per table, changed only by compare-and-swap.
+const tableVisitSchema = new Schema({
+  table: { type: Number, required: true, unique: true },
+  visit: { type: String, default: null },
+  openedAt: Date
+});
 
 export const Setting = model('Setting', settingSchema);
 export const Category = model('Category', categorySchema);
@@ -153,6 +170,7 @@ export const PushSub = model('PushSub', pushSubSchema);
 export const PushKey = model('PushKey', pushKeySchema);
 export const Image = model('Image', imageSchema);
 export const Secret = model('Secret', secretSchema);
+export const TableVisit = model('TableVisit', tableVisitSchema);
 
 /** Always returns the single settings document, creating it if needed. */
 export async function getSettings() {

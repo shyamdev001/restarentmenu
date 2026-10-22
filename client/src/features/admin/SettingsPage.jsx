@@ -72,12 +72,10 @@ function WheelSettings({ game, reload }) {
 }
 
 export default function SettingsPage({ settings, reload }) {
-  const { name, tagline, welcome, currency, taxPercent, tables, publicUrl, requireQr } = settings;
-  const main = useForm({ name, tagline, welcome, currency, taxPercent, tables, publicUrl, requireQr: !!requireQr });
-  const pass = useForm({ current: '', next: '' });
+  const { name, tagline, welcome, currency, taxPercent, tables, publicUrl, requireQr, address = '', phone = '', gstin = '', billNote = '' } = settings;
+  const main = useForm({ name, tagline, welcome, currency, taxPercent, tables, publicUrl, requireQr: !!requireQr, address, phone, gstin, billNote });
 
   const saveSettings = main.submit(async (form) => { await api.put('/admin/settings', form); await reload(); }, 'Saved. Guests see the change straight away.');
-  const savePassword = pass.submit(async (form) => { await api.put('/auth/password', form); pass.setForm({ current: '', next: '' }); }, 'Password changed.');
 
   return (
     <>
@@ -98,6 +96,12 @@ export default function SettingsPage({ settings, reload }) {
             <span className="a-hint" style={{ display: 'block' }}>Off: any link to the menu can order, and guests without a table pick one from a list. On: only the QR cards from Tables &amp; QR can order, so nobody can send food to a table by typing its number. Print the cards before you turn this on.</span>
           </span>
         </label>
+        <h2 className="a-sub is-wide a-form__head">On the printed bill</h2>
+        <label className="a-label is-wide">Address<input maxLength={160} placeholder="12 MG Road, Bengaluru 560001" {...main.field('address')} /></label>
+        <label className="a-label">Phone<input type="tel" maxLength={30} {...main.field('phone')} /></label>
+        <label className="a-label">GSTIN <span className="a-hint">15 characters. With it, the bill is a tax invoice with CGST and SGST.</span>
+          <input maxLength={15} autoCapitalize="characters" spellCheck={false} placeholder="29ABCDE1234F1Z5" {...main.field('gstin')} /></label>
+        <label className="a-label is-wide">Line at the bottom<input maxLength={120} placeholder="Thank you. Please visit again." {...main.field('billNote')} /></label>
         <Feedback state={main.state} />
         <div className="is-wide"><button className="a-btn is-gold" disabled={main.state.busy}>{main.state.busy ? 'Saving…' : 'Save settings'}</button></div>
       </form>
@@ -105,14 +109,7 @@ export default function SettingsPage({ settings, reload }) {
       <h2 className="a-sub">While guests wait</h2>
       <WheelSettings game={settings.game} reload={reload} />
 
-      <h2 className="a-sub">Change password</h2>
-      <form className="a-card a-form" onSubmit={savePassword}>
-        <label className="a-label">Current password<input required type="password" autoComplete="current-password" {...pass.field('current')} /></label>
-        <label className="a-label">New password <span className="a-hint">at least 8 characters</span>
-          <input required type="password" minLength={8} autoComplete="new-password" {...pass.field('next')} /></label>
-        <Feedback state={pass.state} />
-        <div className="is-wide"><button className="a-btn is-gold" disabled={pass.state.busy}>{pass.state.busy ? 'Saving…' : 'Change password'}</button></div>
-      </form>
+      <p className="a-muted a-small">Your own password is under My account.</p>
     </>
   );
 }

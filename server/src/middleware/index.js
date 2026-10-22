@@ -29,7 +29,7 @@ export async function requireAdmin(req, _res, next) {
     const staff = await Admin.findById(payload.sub).lean();
     if (!staff || staff.active === false) throw new Error('signed out');
     req.adminId = payload.sub;
-    req.staff = { id: String(staff._id), name: staff.name || staff.username, role: staff.role || 'owner' };
+    req.staff = { id: String(staff._id), name: staff.name || staff.username, role: staff.role || 'owner', mustChange: !!staff.mustChange };
     next();
   } catch {
     next(ApiError.unauthorized());
@@ -37,9 +37,11 @@ export async function requireAdmin(req, _res, next) {
 }
 
 /** Only staff whose role includes this capability may go further. */
-export const allow = (capability) => (req, _res, next) => (
-  canDo(req.staff?.role, capability) ? next() : next(new ApiError(403, 'Your role does not allow this. Ask the owner if you need it.'))
-);
+export const allow = (capability) => (req, _res, next) => {
+  // Someone still on a password another person chose (or the install's default) must pick their own first.
+  if (req.staff?.mustChange) return next(new ApiError(403, 'Choose your own password first.'));
+  return canDo(req.staff?.role, capability) ? next() : next(new ApiError(403, 'Your role does not allow this. Ask the owner if you need it.'));
+};
 
 const limiter = (windowMs, max, message) => rateLimit({
   windowMs, max, standardHeaders: true, legacyHeaders: false,

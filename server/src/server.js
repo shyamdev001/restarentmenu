@@ -6,12 +6,17 @@ import { createApp } from './app.js';
 import { initSocket, shareAcrossServers } from './services/socket.js';
 import { ensureSeed, importDiskPhotos } from './seed/seed.js';
 import { modernisePhotos } from './services/photos.js';
+import { flagDefaultPasswords, resetOwnerFromEnv } from './services/staff.js';
+import { adoptOldOrders } from './services/tables.js';
 
 async function main() {
   await connectDb();
   await ensureSeed();
   await importDiskPhotos();
   await modernisePhotos();
+  await flagDefaultPasswords();
+  await resetOwnerFromEnv();
+  await adoptOldOrders();
 
   const server = http.createServer(createApp());
   initSocket(server);

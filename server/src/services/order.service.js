@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import { Dish, Order, Setting, getSettings } from '../models/index.js';
 import { ApiError } from '../utils/ApiError.js';
-import { assertTable } from './tables.js';
+import { assertTable, visitFor } from './tables.js';
 
 /** What a customer is allowed to see of an order. */
 export function toPublicOrder(order) {
@@ -16,6 +16,8 @@ export function toPublicOrder(order) {
     stars: o.rating?.stars || 0
   };
 }
+
+const MAX_WAITING = 6;  // unstarted guest orders a table may have at once
 
 /** The steps an order may take. Nothing moves backwards, and a finished order stays finished. */
 const MAY_COME_FROM = {
@@ -76,6 +78,14 @@ export async function createOrder({ table, code, items, clientKey, expected }, {
     if (earlier) return { order: earlier, created: false };
   }
 
+  // Everyone at the table shares one visit: one bill, one spin of the wheel.
+  const visit = await visitFor(table);
+  // Guards against a flood of orders from a photo of a QR code: a real table rarely has this many waiting to be started.
+  if (!staff) {
+    const waiting = await Order.countDocuments({ table, visit, source: 'guest', status: 'new' });
+    if (waiting >= MAX_WAITING) throw new ApiError(429, `Your table already has ${waiting} orders waiting for the kitchen. Please wait for them to start, or ask your server.`);
+  }
+
   const dishes = await Dish.find({ _id: { $in: items.map((i) => i.dishId) } });
   const byId = new Map(dishes.map((d) => [String(d._id), d]));
 
@@ -111,7 +121,7 @@ export async function createOrder({ table, code, items, clientKey, expected }, {
     const order = await Order.create({
       publicId: crypto.randomBytes(12).toString('hex'),
       number: counter.orderCounter,
-      table, items: lines, subtotal,
+      table, visit, items: lines, subtotal,
       taxPercent: settings.taxPercent, tax,
       total: Math.round((subtotal + tax) * 100) / 100,
       etaMin,
@@ -128,4 +138,41 @@ export async function createOrder({ table, code, items, clientKey, expected }, {
     }
     throw err;
   }
+}
+
+/**
+ * Staff take something off an order before it is finished: a guest changed
+ * their mind, or a dish ran out. Only lowering quantities is allowed (more food
+ * is a new order), the totals are worked out again, and if nothing is left the
+ * order is cancelled. If the order moved on while staff were editing, nothing
+ * is changed and they are asked to look again.
+ *
+ *   changes  [{ index, qty }]: the line in order.items and its new quantity (0 removes it).
+ */
+export async function trimOrder(id, changes, by = '') {
+  const order = await Order.findById(id);
+  if (!order) throw ApiError.notFound('Order not found.');
+  if (!['new', 'cooking'].includes(order.status)) throw ApiError.conflict(`Order #${order.number} is already ${order.status}, so it can no longer be changed.`);
+
+  const items = order.items.map((i) => i.toObject());
+  for (const { index, qty } of changes) {
+    const line = items[index];
+    if (!line) throw ApiError.badRequest('That line is not on the order.');
+    if (qty > line.qty) throw ApiError.badRequest('Only fewer can be taken off. Add more as a new order.');
+    line.qty = qty;
+    line.lineTotal = line.unitPrice * qty;
+  }
+  const kept = items.filter((i) => i.qty > 0);
+  if (!kept.length) return moveOrder(id, 'cancelled', by);
+
+  const subtotal = kept.reduce((sum, l) => sum + l.lineTotal, 0);
+  const tax = Math.round(subtotal * order.taxPercent) / 100;
+  const at = new Date();
+  const saved = await Order.findOneAndUpdate(
+    { _id: id, status: order.status, updatedAt: order.updatedAt },
+    { items: kept, subtotal, tax, total: Math.round((subtotal + tax) * 100) / 100, $push: { trail: { status: 'edited', by, at } } },
+    { new: true }
+  );
+  if (!saved) throw ApiError.conflict(`Order #${order.number} changed while you were editing. Please look at it again.`);
+  return { order: saved, changed: true };
 }

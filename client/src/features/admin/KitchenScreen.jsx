@@ -65,7 +65,7 @@ function useTicks(liveIds) {
   return [ticks, toggle];
 }
 
-function Ticket({ o, col, now, ticks, onTick, can, busy, error, onMove }) {
+function Ticket({ o, col, now, ticks, onTick, can, busy, error, onMove, others }) {
   const age = now - new Date(o.createdAt).getTime();
   const eta = Math.max(1, o.etaMin || 15) * 60000;
   const state = o.status === 'ready' ? '' : age > eta ? 'is-late' : age > eta * 0.75 ? 'is-warn' : '';
@@ -83,6 +83,7 @@ function Ticket({ o, col, now, ticks, onTick, can, busy, error, onMove }) {
       <div className="k-ticket__meta">
         {fresh && <span className="k-chip is-new">New</span>}
         {state === 'is-late' && <span className="k-chip is-late">Late</span>}
+        {others > 0 && <span className="k-chip is-also">{others + 1} orders · same table</span>}
         <span>{plates} {plates === 1 ? 'plate' : 'plates'}</span>
         {done > 0 && <span>· {done} of {o.items.length} done</span>}
       </div>
@@ -161,6 +162,8 @@ export default function KitchenScreen({ orders, can, connected }) {
     .slice().sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)), [orders]);
   const [ticks, toggleTick] = useTicks(live.map((o) => o.id));
   const byStatus = (s) => live.filter((o) => o.status === s);
+  // A table with more than one order in: each ticket says so, so the food can go out together.
+  const perTable = live.reduce((map, o) => (o.table > 0 ? map.set(o.table, (map.get(o.table) || 0) + 1) : map), new Map());
 
   // How many of each dish are still to cook, across every order: what a chef calls the "all day".
   const allDay = useMemo(() => {
@@ -237,7 +240,7 @@ export default function KitchenScreen({ orders, can, connected }) {
               )}
               {list.map((o) => (
                 <Ticket key={o.id} o={o} col={col} now={now} ticks={ticks[o.id] || {}} onTick={toggleTick} can={can}
-                  busy={!!moving[o.id]} error={errors[o.id]} onMove={move} />
+                  busy={!!moving[o.id]} error={errors[o.id]} onMove={move} others={(perTable.get(o.table) || 1) - 1} />
               ))}
             </section>
           );

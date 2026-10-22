@@ -22,6 +22,7 @@ import Finder from './Finder.jsx';
 import KitchenScreen from './KitchenScreen.jsx';
 import StaffPage from './StaffPage.jsx';
 import AccountPage from './AccountPage.jsx';
+import ChoosePassword from './ChoosePassword.jsx';
 import '../../styles/admin.css';
 
 // Sections grouped by what they are for. [id, label, icon]
@@ -36,7 +37,11 @@ const NEEDS = { orders: ['orders'], kitchen: ['orders'], reports: ['reports'], h
 const BAR_ORDER = ['home', 'orders', 'kitchen', 'reports', 'menu']; // the first four this person may use go on the phone's bottom bar
 const ROLE_NAMES = { owner: 'Owner', manager: 'Manager', waiter: 'Waiter', kitchen: 'Kitchen' };
 
-const REMIND_MS = 60000; // while something is waiting, a quiet reminder this often
+const REMIND_MS = 60000;
+// Safari on iPhone only delivers push to a site added to the home screen.
+const IOS_BROWSER = typeof navigator !== 'undefined'
+  && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
+  && !navigator.standalone && !window.matchMedia?.('(display-mode: standalone)').matches; // while something is waiting, a quiet reminder this often
 
 function Panel({ user, onLogout }) {
   const can = useCallback((what) => (user.can || []).includes(what), [user]);
@@ -254,6 +259,7 @@ function Panel({ user, onLogout }) {
                 )}
                 {alerts === 'granted' && <p className="a-pop__note">{pushed ? 'Push alerts are on: this device hears new orders and calls even with the panel closed.' : 'Alerts are on while this tab is open. Push could not be set up in this browser.'}</p>}
                 {alerts === 'denied' && <p className="a-pop__note">Alerts are blocked in this browser's site settings.</p>}
+                {IOS_BROWSER && <p className="a-pop__note">On iPhone and iPad, alerts with the panel closed only work from the home screen: tap Share, then Add to Home Screen, and open the admin from that icon.</p>}
               </section>
             )}
           </div>
@@ -322,5 +328,6 @@ export default function AdminApp() {
 
   if (user === undefined) return <div className="boot">Loading…</div>;
   if (!user) return <Login onLogin={setUser} />;
+  if (user.mustChange) return <ChoosePassword user={user} onDone={setUser} onLogout={logout} />;
   return <Panel user={user} onLogout={logout} />;
 }

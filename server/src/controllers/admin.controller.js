@@ -1,8 +1,8 @@
 import QRCode from 'qrcode';
 import { Category, Dish, Order, ServiceCall, Setting, getSettings } from '../models/index.js';
 import { ApiError, asyncHandler } from '../utils/ApiError.js';
-import { createOrder, moveOrder, toPublicOrder } from '../services/order.service.js';
-import { openTables, settleTable, tableCode } from '../services/tables.js';
+import { createOrder, moveOrder, toPublicOrder, trimOrder } from '../services/order.service.js';
+import { moveTable, openTables, settleTable, tableCode, unpaidOrders } from '../services/tables.js';
 import { buildReport, exportCsv, ordersIn, rangeOf, todayIn, zoneOf } from '../services/reports.js';
 import { gameOf, saveGame } from '../services/waiting.js';
 import { ROLES, STEP_NEEDS, addStaff, canDo, changeStaff, listStaff, removeStaff } from '../services/staff.js';
@@ -38,6 +38,13 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   res.json(order);
 });
 
+/** PATCH /orders/:id/items : take dishes off an order that is not finished yet. */
+export const trimOrderItems = asyncHandler(async (req, res) => {
+  const { order } = await trimOrder(req.params.id, req.body.items, req.staff.name);
+  realtime.orderUpdated(order.toJSON(), toPublicOrder(order));
+  res.json(order);
+});
+
 /* ------------------------------- Tables and bills ------------------------------ */
 /** GET /tables/open : tables with something ordered and not yet paid. */
 export const listOpenTables = asyncHandler(async (_req, res) => res.json(await openTables()));
@@ -49,6 +56,23 @@ export const settle = asyncHandler(async (req, res) => {
   const closed = await settleTable(table);
   realtime.tableSettled(table);
   res.json({ ok: true, closed });
+});
+
+/** GET /tables/:table/bill : every unpaid order at the table, for printing the bill. */
+export const tableBillForStaff = asyncHandler(async (req, res) => {
+  const table = Number.parseInt(req.params.table, 10);
+  if (!Number.isInteger(table) || table < 0) throw ApiError.badRequest('Unknown table.');
+  res.json(await unpaidOrders(table));
+});
+
+/** POST /tables/:table/move { to } : the party has moved to another table. */
+export const moveToTable = asyncHandler(async (req, res) => {
+  const from = Number.parseInt(req.params.table, 10);
+  if (!Number.isInteger(from) || from < 1) throw ApiError.badRequest('Unknown table.');
+  const moved = await moveTable(from, req.body.to, await getSettings());
+  for (const order of moved) realtime.orderUpdated(order.toJSON(), toPublicOrder(order));
+  realtime.tableSettled(from);
+  res.json({ ok: true, moved: moved.length });
 });
 
 /** GET /table-codes : the code inside each table's QR link. */
