@@ -61,6 +61,9 @@ function inRange({ from, to, zone }) {
 export const ordersIn = (range, limit = 5000) => Order.aggregate([...inRange(range), { $sort: { createdAt: -1 } }, { $limit: limit }]);
 
 const sums = { orders: { $sum: 1 }, revenue: { $sum: '$total' }, plates: { $sum: { $sum: '$items.qty' } } };
+const METHODS = ['cash', 'upi', 'card'];
+// Sales by how they were paid, for the day-by-day table.
+const byMethod = Object.fromEntries(METHODS.map((m) => [m, { $sum: { $cond: [{ $eq: ['$paidBy', m] }, '$total', 0] } }]));
 
 /** Orders, plates, sales and average bill for a range. Cancelled orders are left out. */
 async function totalsOf(range) {
@@ -83,12 +86,12 @@ export async function buildReport(range) {
 
   const [
     totals, previous, cancelled, byDay, byHour, byWeekday, heat, byTable, sizes,
-    dishRows, addonRows, spiceRows, speed, calls, dishes, categories, rated, prizes
+    dishRows, addonRows, spiceRows, speed, calls, dishes, categories, rated, prizes, paidRows
   ] = await Promise.all([
     totalsOf(range),
     totalsOf(before),
     Order.aggregate([...all, { $match: { status: 'cancelled' } }, { $group: { _id: null, n: { $sum: 1 }, value: { $sum: '$total' } } }]),
-    Order.aggregate([...sold, { $group: { _id: '$day', ...sums } }, { $sort: { _id: 1 } }]),
+    Order.aggregate([...sold, { $group: { _id: '$day', ...sums, ...byMethod } }, { $sort: { _id: 1 } }]),
     Order.aggregate([...sold, { $group: { _id: '$hour', ...sums } }, { $sort: { _id: 1 } }]),
     Order.aggregate([...sold, { $group: { _id: '$weekday', ...sums, days: { $addToSet: '$day' } } }, { $sort: { _id: 1 } }]),
     Order.aggregate([...sold, { $group: { _id: { weekday: '$weekday', hour: '$hour' }, orders: { $sum: 1 } } }]),
@@ -121,7 +124,12 @@ export async function buildReport(range) {
     Order.aggregate([...all, { $match: { 'rating.stars': { $gte: 1 } } }, { $sort: { 'rating.at': -1 } },
       { $group: { _id: null, n: { $sum: 1 }, average: { $avg: '$rating.stars' }, stars: { $push: '$rating.stars' },
         notes: { $push: { stars: '$rating.stars', comment: '$rating.comment', table: '$table', number: '$number', at: '$rating.at' } } } }]),
-    Order.aggregate([...all, { $match: { 'prize.win': true } }, { $group: { _id: '$prize.label', n: { $sum: 1 } } }, { $sort: { n: -1 } }])
+    Order.aggregate([...all, { $match: { 'prize.win': true } }, { $group: { _id: '$prize.label', n: { $sum: 1 } } }, { $sort: { n: -1 } }]),
+    // How guests paid: by the method staff recorded; paid before methods were recorded; not marked paid yet.
+    Order.aggregate([...sold, { $group: {
+      _id: { $cond: [{ $in: ['$paidBy', METHODS] }, '$paidBy', { $cond: ['$settled', 'unrecorded', 'open'] }] },
+      orders: { $sum: 1 }, revenue: { $sum: '$total' }
+    } }])
   ]);
 
   const categoryName = new Map(categories.map((c) => [String(c._id), c.name]));
@@ -160,7 +168,14 @@ export async function buildReport(range) {
     from: range.from, to: range.to, zone: range.zone, days: length,
     totals: { ...totals, cancelled: lost.n, cancelledValue: round(lost.value), cancelRate: everyOrder ? Math.round((lost.n / everyOrder) * 1000) / 10 : 0 },
     previous: { from: before.from, to: before.to, ...previous },
-    byDay: byDay.map((d) => ({ day: d._id, orders: d.orders, plates: d.plates, revenue: round(d.revenue), average: d.orders ? round(d.revenue / d.orders) : 0 })),
+    byDay: byDay.map((d) => ({
+      day: d._id, orders: d.orders, plates: d.plates, revenue: round(d.revenue), average: d.orders ? round(d.revenue / d.orders) : 0,
+      cash: round(d.cash), upi: round(d.upi), card: round(d.card)
+    })),
+    payments: [...METHODS, 'unrecorded', 'open'].map((method) => {
+      const row = paidRows.find((r) => r._id === method);
+      return { method, orders: row?.orders || 0, revenue: round(row?.revenue || 0) };
+    }),
     byHour: byHour.map((h) => ({ hour: h._id, orders: h.orders, revenue: round(h.revenue) })),
     // Averages per weekday use only the days that had orders, so one busy Saturday is not diluted by nothing.
     byWeekday: byWeekday.map((w) => ({ weekday: w._id, orders: w.orders, revenue: round(w.revenue), days: w.days.length, perDay: round(w.revenue / w.days.length) })),
@@ -209,15 +224,17 @@ export async function exportCsv(range, kind = 'orders') {
   }
   if (kind === 'days') {
     const report = await buildReport(range);
-    return csv([['Date', 'Orders', 'Plates', 'Sales', 'Average bill'],
-      ...report.byDay.map((d) => [d.day, d.orders, d.plates, d.revenue, d.average])]);
+    return csv([['Date', 'Orders', 'Plates', 'Sales', 'Average bill', 'Cash', 'UPI', 'Card'],
+      ...report.byDay.map((d) => [d.day, d.orders, d.plates, d.revenue, d.average, d.cash, d.upi, d.card])]);
   }
   const time = new Intl.DateTimeFormat('en-GB', { timeZone: range.zone, hour: '2-digit', minute: '2-digit', hour12: false });
   const orders = (await ordersIn(range, 20000)).reverse();
-  return csv([['Order', 'Date', 'Time', 'Table', 'Status', 'Items', 'Plates', 'Subtotal', 'Tax', 'Total'],
+  const paid = { cash: 'Cash', upi: 'UPI', card: 'Card' };
+  return csv([['Order', 'Date', 'Time', 'Table', 'Status', 'Items', 'Plates', 'Subtotal', 'Tax', 'Total', 'Paid by'],
     ...orders.map((o) => [
       o.number, o.day, time.format(o.createdAt), o.table, o.status,
       o.items.map((i) => `${i.qty}x ${i.name}`).join('; '),
-      o.items.reduce((n, i) => n + i.qty, 0), o.subtotal, o.tax, o.total
+      o.items.reduce((n, i) => n + i.qty, 0), o.subtotal, o.tax, o.total,
+      o.status === 'cancelled' ? '' : paid[o.paidBy] || (o.settled ? 'Not recorded' : 'Not paid yet')
     ])]);
 }

@@ -91,6 +91,33 @@ function Stat({ label, value, now, before, moneyLike }) {
   return <div className={'a-stat' + (moneyLike ? ' is-key' : '')}><b>{value}</b><span>{label}</span>{change}</div>;
 }
 
+const PAID = { cash: ['Cash', 'cash'], upi: ['UPI', 'qr'], card: ['Card', 'card'], unrecorded: ['Not recorded', 'receipt'], open: ['Not paid yet', 'clock'] };
+
+/** How the money came in: cash in the drawer, UPI and card in the bank. For checking the day at closing time. */
+function Payments({ payments, rupees }) {
+  if (!payments) return null;
+  const shown = payments.filter((p) => p.orders > 0 || ['cash', 'upi', 'card'].includes(p.method));
+  const most = Math.max(1, ...shown.map((p) => p.revenue));
+  const recorded = payments.filter((p) => ['cash', 'upi', 'card'].includes(p.method)).reduce((n, p) => n + p.revenue, 0);
+  return (
+    <section className="a-card" aria-label="How guests paid">
+      <h2 className="a-sub" style={{ marginBottom: 6 }}>How guests paid</h2>
+      <p className="a-muted a-small" style={{ marginBottom: 14 }}>
+        {recorded ? `${rupees(recorded)} recorded when tables were marked paid. Count the cash drawer against Cash.` : 'Each time a table is marked paid, staff tap Cash, UPI or Card; the totals show here.'}
+      </p>
+      <ul className="a-payments">
+        {shown.map((p) => (
+          <li key={p.method} className={['unrecorded', 'open'].includes(p.method) ? 'is-quiet' : ''}>
+            <span><Icon name={PAID[p.method][1]} size={16} />{PAID[p.method][0]}</span>
+            <span className="a-payments__bar" aria-hidden="true"><i style={{ width: `${(p.revenue / most) * 100}%` }} /></span>
+            <b>{rupees(p.revenue)}<small>{p.orders} {p.orders === 1 ? 'order' : 'orders'}</small></b>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 const Fact = ({ label, value, note }) => <div className="a-fact"><span>{label}</span><b>{value}</b>{note && <small>{note}</small>}</div>;
 
 /** Orders by weekday and hour. One hue, darker for busier: it shows when to staff up. */
@@ -228,6 +255,8 @@ export default function ReportsPage({ settings, setError }) {
                     <Fact label="Cancelled" value={count(t.cancelled)} note={t.cancelled ? `${rupees(t.cancelledValue)} lost · ${t.cancelRate}% of orders` : 'none'} />
                   </div>
 
+                  <Payments payments={report.payments} rupees={rupees} />
+
                   <section className="a-card">
                     <h2 className="a-sub" style={{ marginBottom: 12 }}>At a glance</h2>
                     <ul className="a-glance">
@@ -256,10 +285,10 @@ export default function ReportsPage({ settings, setError }) {
                     {table && (
                       <div className="a-scroll">
                         <table className="a-table">
-                          <thead><tr><th>Date</th><th>Orders</th><th>Plates</th><th>Average bill</th><th>Sales</th></tr></thead>
+                          <thead><tr><th>Date</th><th>Orders</th><th>Plates</th><th>Average bill</th><th>Cash</th><th>UPI</th><th>Card</th><th>Sales</th></tr></thead>
                           <tbody>
                             {report.byDay.slice().reverse().map((d) => (
-                              <tr key={d.day}><td>{dayLabel(d.day, true)}</td><td>{count(d.orders)}</td><td>{count(d.plates)}</td><td>{rupees(Math.round(d.average))}</td><td>{rupees(d.revenue)}</td></tr>
+                              <tr key={d.day}><td>{dayLabel(d.day, true)}</td><td>{count(d.orders)}</td><td>{count(d.plates)}</td><td>{rupees(Math.round(d.average))}</td><td>{rupees(d.cash || 0)}</td><td>{rupees(d.upi || 0)}</td><td>{rupees(d.card || 0)}</td><td>{rupees(d.revenue)}</td></tr>
                             ))}
                           </tbody>
                         </table>

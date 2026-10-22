@@ -91,6 +91,8 @@ const orderSchema = new Schema({
   enteredBy: String,
   trail: [{ _id: false, status: String, by: String, at: Date }],
   settled: { type: Boolean, default: false },     // the table has paid: no longer part of anyone's bill
+  paidBy: { type: String, enum: ['cash', 'upi', 'card'] }, // how, as staff recorded it when marking the table paid
+  paidAt: Date,
   visit: { type: String },                        // the party at the table (see services/tables.js): one bill, one spin
   clientKey: { type: String }                     // made by the guest's phone, so a retried send is not a second order
 }, jsonOptions);

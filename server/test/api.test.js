@@ -156,12 +156,12 @@ test('the bill is for the whole table, until the table pays', async () => {
   const open = await call('GET', '/admin/tables/open', null, { admin: true });
   assert.equal(open.body.find((t) => t.table === 8).orders, 2);
 
-  assert.equal((await call('POST', '/admin/tables/8/settle', null, { admin: true })).status, 409, 'food still in the kitchen');
+  assert.equal((await call('POST', '/admin/tables/8/settle', { method: 'cash' }, { admin: true })).status, 409, 'food still in the kitchen');
   for (const placed of [a, b]) {
     const order = await Order.findOne({ publicId: placed.body.id });
     for (const status of ['cooking', 'ready', 'served']) await call('PATCH', `/admin/orders/${order.id}`, { status }, { admin: true });
   }
-  assert.equal((await call('POST', '/admin/tables/8/settle', null, { admin: true })).status, 200);
+  assert.equal((await call('POST', '/admin/tables/8/settle', { method: 'cash' }, { admin: true })).status, 200);
   assert.equal((await call('GET', `/tables/8/bill?code=${codes[8]}`)).body.length, 0);
   const mine = await call('GET', `/orders?ids=${a.body.id}`);
   assert.equal(mine.body[0].settled, true);
@@ -459,7 +459,26 @@ test('guest alerts follow the party and stop when the table has paid', async () 
   // They pay: the next party's calls at that table are not this phone's news.
   const order = await Order.findOne({ publicId: placed.body.id });
   for (const status of ['cooking', 'ready', 'served']) await call('PATCH', `/admin/orders/${order.id}`, { status }, { admin: true });
-  assert.equal((await call('POST', '/admin/tables/21/settle', null, { admin: true })).status, 200);
+  assert.equal((await call('POST', '/admin/tables/21/settle', { method: 'cash' }, { admin: true })).status, 200);
   await new Promise((resolve) => setTimeout(resolve, 100));
   assert.equal((await PushSub.findOne({ endpoint: renewed.endpoint })).table, null);
+});
+
+test('marking a table paid records cash, UPI or card, and reports add them up', async () => {
+  const placed = await call('POST', '/orders', basket(22));
+  const order = await Order.findOne({ publicId: placed.body.id });
+  for (const status of ['cooking', 'ready', 'served']) await call('PATCH', `/admin/orders/${order.id}`, { status }, { admin: true });
+  assert.equal((await call('POST', '/admin/tables/22/settle', {}, { admin: true })).status, 400, 'the method is required');
+  assert.equal((await call('POST', '/admin/tables/22/settle', { method: 'cheque' }, { admin: true })).status, 400);
+  assert.equal((await call('POST', '/admin/tables/22/settle', { method: 'upi' }, { admin: true })).status, 200);
+  const saved = await Order.findById(order.id);
+  assert.equal(saved.paidBy, 'upi');
+  assert.ok(saved.paidAt instanceof Date);
+
+  const report = (await call('GET', '/admin/reports?tz=UTC', null, { admin: true })).body;
+  const upi = report.payments.find((p) => p.method === 'upi');
+  assert.ok(upi.orders >= 1 && upi.revenue >= saved.total);
+  assert.ok(report.byDay.at(-1).upi >= saved.total, 'each day shows its UPI total');
+  const csv = await fetch(`${url}/api/admin/reports/export?kind=orders&tz=UTC`, { headers: { cookie } });
+  assert.match(await csv.text(), /,UPI\r\n/);
 });

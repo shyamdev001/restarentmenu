@@ -831,3 +831,24 @@ select.a-input:disabled { opacity: 0.6; cursor: default; }
   body.is-printing-bill .a-receiptbox__paper { overflow: visible; }
   body.is-printing-bill .a-receipt { width: 72mm; max-width: 100%; margin: 0 auto; border: 0; padding: 0; break-after: page; }
 }
+
+/* ---------- Marking a table paid: how the money came in ---------- */
+.a-opentable__pay { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; padding-top: 10px; border-top: 1px solid var(--hair); animation: aFlash 0.25s var(--out) backwards; }
+.a-opentable__pay > span { flex-basis: 100%; font-size: 13px; font-weight: 600; color: var(--muted); }
+.a-paymethod { flex: 1 1 80px; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; border-radius: 14px; border: 1px solid var(--rule); background: var(--card-hi); color: var(--text); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease; }
+.a-paymethod svg { color: var(--gold); }
+.a-paymethod:hover:not(:disabled) { border-color: var(--gold); background: rgb(var(--gold-rgb) / 0.08); }
+.a-paymethod:active:not(:disabled) { transform: scale(0.97); }
+.a-paymethod:disabled { opacity: 0.5; cursor: progress; }
+.a-opentable__pay .a-btn { flex: 1 1 100%; min-height: 40px; }
+.a-payments { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.a-payments li { display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; align-items: center; gap: 12px; font-size: 14px; }
+.a-payments li > span:first-child { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.a-payments li > span:first-child svg { color: var(--gold); }
+.a-payments__bar { height: 10px; border-radius: 999px; background: rgb(var(--fg) / 0.07); overflow: hidden; }
+.a-payments__bar i { display: block; height: 100%; border-radius: inherit; background: var(--satin); }
+.a-payments li > b { font-variant-numeric: tabular-nums; text-align: right; }
+.a-payments li > b small { display: block; font-weight: 500; font-size: 12px; color: var(--faint); }
+.a-payments li.is-quiet { color: var(--muted); }
+.a-payments li.is-quiet .a-payments__bar i { background: rgb(var(--fg) / 0.25); }
+@media (max-width: 560px) { .a-payments li { grid-template-columns: 90px minmax(0, 1fr) auto; gap: 8px; } }

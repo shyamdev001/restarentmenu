@@ -118,11 +118,13 @@ export const unpaidOrders = (table) => Order.find({
   table, settled: false, status: { $ne: 'cancelled' }, createdAt: { $gte: new Date(Date.now() - VISIT_MS) }
 }).sort({ createdAt: 1 });
 
-/** The table has paid: close its orders so the next guests start clean. */
-export async function settleTable(table) {
+/** The table has paid, by cash, UPI or card: close its orders so the next guests start clean. */
+export async function settleTable(table, method) {
   const active = await Order.countDocuments({ table, settled: false, status: { $in: LIVE } });
   if (active) throw ApiError.conflict(`${table === 0 ? 'The counter' : 'Table ' + table} still has an order in the kitchen.`);
-  const result = await Order.updateMany({ table, settled: false }, { settled: true });
+  // Cancelled orders were never paid for, so they only close; the rest record how the bill was paid.
+  await Order.updateMany({ table, settled: false, status: 'cancelled' }, { settled: true });
+  const result = await Order.updateMany({ table, settled: false }, { settled: true, paidBy: method, paidAt: new Date() });
   await endVisit(table);
   return result.modifiedCount;
 }

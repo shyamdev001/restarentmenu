@@ -42,7 +42,7 @@ a.get('/history', allow('reports'), admin.historyDays);
 a.get('/history/:day', allow('reports'), admin.historyDay);
 
 a.get('/tables/open', allow('orders'), admin.listOpenTables);
-a.post('/tables/:table/settle', allow('settle'), admin.settle);
+a.post('/tables/:table/settle', allow('settle'), validate(s.settleSchema), admin.settle);
 a.get('/tables/:table/bill', allow('settle'), admin.tableBillForStaff);
 a.post('/tables/:table/move', allow('settle'), validate(s.moveSchema), admin.moveToTable);
 a.get('/table-codes', allow('qr'), admin.tableCodes);

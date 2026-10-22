@@ -6,6 +6,8 @@ import { money, tableName, timeAgo } from '../../lib/format.js';
 import NewOrder from './NewOrder.jsx';
 import Receipt from './Receipt.jsx';
 
+const PAY_METHODS = [['cash', 'Cash', 'cash'], ['upi', 'UPI', 'qr'], ['card', 'Card', 'card']];
+
 const COLUMNS = [
   { status: 'new', title: 'New', next: 'cooking', action: 'Start cooking', needs: 'cook' },
   { status: 'cooking', title: 'Cooking', next: 'ready', action: 'Mark ready', needs: 'cook' },
@@ -95,13 +97,14 @@ export default function OrdersBoard({ can, orders, calls, stats, settings, setEr
     }))) return;
     api.patch(`/admin/orders/${order.id}`, { status }).catch((e) => setError(e.message));
   };
-  const markPaid = async (t) => {
-    const yes = await confirm({
-      title: `${tableName(t.table)} has paid?`,
-      body: `This closes ${t.orders === 1 ? 'its order' : `its ${t.orders} orders`} (${money(t.total, currency)}). The guests' phones start a fresh visit.`,
-      action: 'Mark as paid', cancel: 'Not yet'
-    });
-    if (yes) api.post(`/admin/tables/${t.table}/settle`).then(loadTables).catch((e) => setError(e.message));
+  // Marking paid is one tap on how the money came in: cash, UPI or card. That tap closes the table.
+  const [paying, setPaying] = useState(null);   // the table whose payment choice is open
+  const [settling, setSettling] = useState(false);
+  const markPaid = async (t, method) => {
+    setSettling(true);
+    try { await api.post(`/admin/tables/${t.table}/settle`, { method }); setPaying(null); loadTables(); }
+    catch (e) { setError(e.message); }
+    finally { setSettling(false); }
   };
   // Printing a table's bill, and moving a party to another table.
   const [printing, setPrinting] = useState(null);
@@ -159,9 +162,21 @@ export default function OrdersBoard({ can, orders, calls, stats, settings, setEr
                 {can('settle') && (
                   <span className="a-opentable__tools">
                     <button className="a-btn" onClick={() => setPrinting(t.table)}><Icon name="print" size={15} />Bill</button>
-                    {t.table > 0 && <button className="a-btn" aria-expanded={moving?.from === t.table} onClick={() => setMoving(moving?.from === t.table ? null : { from: t.table, to: '' })}>Move</button>}
-                    <button className="a-btn is-gold" disabled={t.active > 0} title={t.active ? 'Wait until everything is served' : undefined} onClick={() => markPaid(t)}>Mark paid</button>
+                    {t.table > 0 && <button className="a-btn" aria-expanded={moving?.from === t.table} onClick={() => { setMoving(moving?.from === t.table ? null : { from: t.table, to: '' }); setPaying(null); }}>Move</button>}
+                    <button className="a-btn is-gold" disabled={t.active > 0} aria-expanded={paying === t.table} title={t.active ? 'Wait until everything is served' : undefined}
+                      onClick={() => { setPaying(paying === t.table ? null : t.table); setMoving(null); }}>Mark paid</button>
                   </span>
+                )}
+                {paying === t.table && (
+                  <div className="a-opentable__pay" role="group" aria-label={`How ${tableName(t.table)} paid ${money(t.total, currency)}`}>
+                    <span>Paid {money(t.total, currency)} by</span>
+                    {PAY_METHODS.map(([method, label, icon]) => (
+                      <button key={method} className="a-paymethod" disabled={settling} onClick={() => markPaid(t, method)}>
+                        <Icon name={icon} size={18} />{label}
+                      </button>
+                    ))}
+                    <button className="a-btn" disabled={settling} onClick={() => setPaying(null)}>Not yet</button>
+                  </div>
                 )}
                 {moving?.from === t.table && (
                   <form className="a-opentable__move" onSubmit={move}>

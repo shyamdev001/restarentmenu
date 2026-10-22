@@ -101,6 +101,9 @@ export const trimSchema = z.object({
 
 export const moveSchema = z.object({ to: z.coerce.number().int().min(1).max(500) });
 
+// Marking a table paid: how the money came in, for the day's cash, UPI and card totals.
+export const settleSchema = z.object({ method: z.enum(['cash', 'upi', 'card'], { errorMap: () => ({ message: 'Choose cash, UPI or card' }) }) });
+
 export const reorderSchema = z.object({ ids: z.array(objectId).min(1).max(200) });
 
 export const categorySchema = z.object({

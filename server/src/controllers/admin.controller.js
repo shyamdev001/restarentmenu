@@ -54,7 +54,7 @@ export const listOpenTables = asyncHandler(async (_req, res) => res.json(await o
 export const settle = asyncHandler(async (req, res) => {
   const table = Number.parseInt(req.params.table, 10);
   if (!Number.isInteger(table) || table < 0) throw ApiError.badRequest('Unknown table.');
-  const closed = await settleTable(table);
+  const closed = await settleTable(table, req.body.method);
   realtime.tableSettled(table);
   push.forgetTable(table);
   res.json({ ok: true, closed });
