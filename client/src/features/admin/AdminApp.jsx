@@ -26,7 +26,7 @@ import '../../styles/admin.css';
 
 // Sections grouped by what they are for. [id, label, icon]
 const NAV = [
-  { group: 'Today', items: [['home', 'Home', 'home'], ['orders', 'Orders', 'receipt'], ['kitchen', 'Kitchen screen', 'chef']] },
+  { group: 'Today', items: [['home', 'Home', 'home'], ['orders', 'Orders', 'receipt'], ['kitchen', 'Kitchen screen', 'chef', 'Kitchen']] },
   { group: 'Your business', items: [['reports', 'Reports', 'chart'], ['history', 'History', 'clock']] },
   { group: 'Your menu', items: [['menu', 'Dishes', 'dish'], ['categories', 'Categories', 'grid']] },
   { group: 'Setup', items: [['tables', 'Tables & QR', 'qr'], ['staff', 'Staff', 'users'], ['settings', 'Settings', 'gear'], ['account', 'My account', 'user']] }
@@ -43,6 +43,7 @@ function Panel({ user, onLogout }) {
   const allowed = useCallback((id) => !NEEDS[id] || NEEDS[id].some(can), [can]);
   // The kitchen lands straight on its screen; everyone else on Home.
   const [tab, setTab] = useState(user.role === 'kitchen' ? 'kitchen' : 'home');
+  useEffect(() => { if (!allowed(tab)) setTab(user.role === 'kitchen' ? 'kitchen' : 'home'); }, [allowed, tab, user.role]);
   const [moreOpen, setMoreOpen] = useState(false);
   const [target, setTarget] = useState(null);   // something to open on arrival, e.g. a dish
   const [theme, toggleTheme] = useTheme();
@@ -148,9 +149,9 @@ function Panel({ user, onLogout }) {
 
   if (!data.settings) return <div className="boot">{data.error || 'Loading…'}</div>;
 
-  const navButton = ([id, label, icon], extraClass = '') => (
+  const navButton = ([id, label, icon, short], extraClass = '', compact = false) => (
     <button key={id} className={'a-nav' + (tab === id ? ' is-on' : '') + extraClass} onClick={() => go(id)} aria-current={tab === id ? 'page' : undefined}>
-      <Icon name={icon} size={18} /><span>{label}</span>
+      <Icon name={icon} size={18} /><span>{compact && short ? short : label}</span>
       {id === 'orders' && waiting > 0 && <span className="a-badge">{waiting}</span>}
     </button>
   );
@@ -262,8 +263,8 @@ function Panel({ user, onLogout }) {
           {silent && !muted && <p className="a-soundhint" role="status"><Icon name="sound" size={16} />Tap anywhere once so this screen can ring for new orders.</p>}
           {data.error && <p className="a-error" role="alert">{data.error} <button className="a-btn" onClick={() => data.setError('')}>Dismiss</button></p>}
           {tab === 'home' && <HomePage {...data} alerts={alerts} go={go} onAlerts={enableAlerts} can={can} sections={sections} />}
-          {tab === 'kitchen' && <KitchenScreen orders={data.orders} can={can} setError={data.setError} />}
-          {tab === 'staff' && <StaffPage me={user} setError={data.setError} />}
+          {tab === 'kitchen' && <KitchenScreen orders={data.orders} can={can} connected={data.connected} />}
+          {tab === 'staff' && <StaffPage me={user} />}
           {tab === 'account' && <AccountPage me={user} />}
           {tab === 'orders' && <OrdersBoard {...data} can={can} open={target} onOpened={() => setTarget(null)} onSending={() => { sending.current += 1; setTimeout(() => { sending.current = Math.max(0, sending.current - 1); }, 10000); }} />}
           {tab === 'history' && <HistoryPage settings={data.settings} setError={data.setError} />}
@@ -277,7 +278,7 @@ function Panel({ user, onLogout }) {
 
       {/* Phones: the four everyday sections along the bottom, the rest one tap away under More. */}
       <nav className="a-bottom" aria-label="Sections">
-        {onBar.map((item) => navButton(item))}
+        {onBar.map((item) => navButton(item, '', true))}
         <button className={'a-nav' + (moreOpen || underMore.some(([id]) => id === tab) ? ' is-on' : '')} onClick={() => setMoreOpen((v) => !v)} aria-expanded={moreOpen}>
           <Icon name="more" size={18} strokeWidth={3} /><span>More</span>
         </button>
@@ -302,6 +303,20 @@ export default function AdminApp() {
   const [user, setUser] = useState(undefined); // undefined = checking, null = signed out
 
   useEffect(() => { api.get('/auth/me').then(setUser).catch(() => setUser(null)); }, []);
+
+  // When the owner changes someone's role or switches them off, their screen follows within a minute
+  // (or at once when they come back to the tab), without a reload.
+  const signedIn = !!user;
+  useEffect(() => {
+    if (!signedIn) return undefined;
+    const check = () => api.get('/auth/me')
+      .then((fresh) => setUser((old) => (old && old.role === fresh.role && old.name === fresh.name && old.active === fresh.active ? old : fresh)))
+      .catch((e) => { if (e.status === 401) setUser(null); });
+    const onVisible = () => { if (!document.hidden) check(); };
+    const timer = setInterval(check, 60000);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+  }, [signedIn]);
 
   const logout = async () => { await api.post('/auth/logout').catch(() => {}); setUser(null); };
 
