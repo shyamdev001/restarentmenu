@@ -19,6 +19,7 @@ router.post('/orders/:id/rating', publicWriteLimiter, validate(s.ratingSchema), 
 router.get('/push/key', pub.pushKey);
 router.post('/push/subscribe', pushLimiter, validate(s.pushGuestSchema), pub.pushSubscribe);
 router.post('/push/unsubscribe', pushLimiter, validate(s.pushRemoveSchema), pub.pushUnsubscribe);
+router.post('/push/renew', pushLimiter, validate(s.pushRenewSchema), pub.pushRenew);
 
 /* ------------------------------------ Auth ----------------------------------- */
 router.post('/auth/login', loginLimiter, validate(s.loginSchema), auth.login);

@@ -18,7 +18,9 @@ self.addEventListener('push', (event) => {
     if (tabs.some((tab) => tab.visibilityState === 'visible' && isAdmin(tab.url) === isAdmin(url))) return;
     await self.registration.showNotification(news.title || 'Update', {
       body: news.body || '', tag: news.tag, renotify: !!news.tag,
-      icon: '/icon-192.png', badge: '/icon-192.png', vibrate: [120, 60, 120], data: { url }
+      requireInteraction: !!news.requireInteraction,   // "on its way": stays until it is seen
+      icon: '/icon-192.png', badge: '/icon-192.png', vibrate: news.vibrate || [120, 60, 120],
+      timestamp: Date.now(), data: { url }
     });
   })());
 });
@@ -29,6 +31,24 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil((async () => {
     const tabs = await openTabs();
     const tab = tabs.find((t) => isAdmin(t.url) === isAdmin(url));
-    return tab ? tab.focus() : self.clients.openWindow(url);
+    if (!tab) return self.clients.openWindow(url);
+    // The menu is still open somewhere: bring it forward and show the order there.
+    tab.postMessage({ type: 'open', url });
+    return tab.focus();
   })());
+});
+
+// Push addresses expire now and then. Get a new one and tell the server, so the
+// guest keeps hearing about their order without opening the menu again.
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil((async () => {
+    const old = event.oldSubscription;
+    const key = old?.options?.applicationServerKey;
+    if (!old || !key) return;
+    const fresh = event.newSubscription || await self.registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    await fetch('/api/push/renew', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ old: old.endpoint, subscription: fresh.toJSON() })
+    });
+  })().catch(() => {}));
 });

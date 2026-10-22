@@ -75,6 +75,7 @@ export const pushGuestSchema = z.object({
 });
 export const pushAdminSchema = z.object({ subscription });
 export const pushRemoveSchema = z.object({ endpoint: pushEndpoint });
+export const pushRenewSchema = z.object({ old: pushEndpoint, subscription });
 
 export const ratingSchema = z.object({
   stars: z.coerce.number().int().min(1).max(5),

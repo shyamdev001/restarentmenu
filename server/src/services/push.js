@@ -1,6 +1,7 @@
 import webpush from 'web-push';
 import { env } from '../config/env.js';
 import { PushKey, PushSub } from '../models/index.js';
+import { tableCode } from './tables.js';
 
 /**
  * Web Push: notifications that reach a phone or laptop even when the menu or
@@ -46,13 +47,26 @@ export async function saveSubscription({ subscription, role, orders = [], table 
 
 export const removeSubscription = (endpoint) => PushSub.deleteOne({ endpoint });
 
+/**
+ * The browser replaced its push address (they expire now and then). The
+ * service worker reports the new one here, and it keeps what the old one was
+ * listening for, so alerts carry on without the guest doing anything.
+ */
+export async function renewSubscription({ old, subscription }) {
+  const before = await PushSub.findOne({ endpoint: old });
+  if (!before) return false;
+  await PushSub.deleteOne({ endpoint: subscription.endpoint, _id: { $ne: before._id } });
+  await PushSub.updateOne({ _id: before._id }, { endpoint: subscription.endpoint, keys: subscription.keys, seenAt: new Date() });
+  return true;
+}
+
 /** Send one message to every matching subscription. Never throws: push is a nicety. */
-async function send(filter, message) {
+async function send(filter, message, ttl = 600) {
   try {
     await ready();
     const subs = await PushSub.find(filter);
     await Promise.all(subs.map((sub) => webpush
-      .sendNotification({ endpoint: sub.endpoint, keys: sub.keys }, JSON.stringify(message), { TTL: 600, urgency: 'high' })
+      .sendNotification({ endpoint: sub.endpoint, keys: sub.keys }, JSON.stringify(message), { TTL: ttl, urgency: 'high' })
       .catch((err) => {
         // The browser has dropped this subscription: forget it.
         if (err.statusCode === 404 || err.statusCode === 410) return PushSub.deleteOne({ _id: sub._id });
@@ -65,12 +79,36 @@ async function send(filter, message) {
 
 const tableName = (n) => (n === 0 ? 'Counter' : `Table ${n}`);
 
+/** "Butter Chicken, 2 × Garlic Naan and 2 more": what the guest ordered, short enough for a lock screen. */
+function dishes(items) {
+  const names = items.map((i) => (i.qty > 1 ? `${i.qty} × ${i.name}` : i.name));
+  return names.length <= 2 ? names.join(', ') : `${names.slice(0, 2).join(', ')} and ${names.length - 2} more`;
+}
+
+const minutesLeft = (o) => Math.max(1, Math.round((o.etaMin || 15) - (Date.now() - new Date(o.createdAt).getTime()) / 60000));
+
+/**
+ * What a guest's phone says as their order moves on. The moment the food
+ * leaves the kitchen stays on screen until it is seen, with a longer buzz.
+ *   ttl  how long the push service keeps trying if the phone is offline
+ */
 const GUEST_NEWS = {
-  cooking: (o) => ['Your order is on the fire', `Order #${o.number} · about ${o.etaMin} minutes to your table.`],
-  ready: (o) => ['On its way to your table', `Order #${o.number} has just left the kitchen.`],
-  served: (o) => ['Served. Enjoy.', `Order #${o.number} is on your table.`],
-  cancelled: (o) => [`Order #${o.number} was cancelled`, 'Please ask your server what happened.']
+  cooking: (o) => ({ title: 'Your food is cooking', body: `${dishes(o.items)} · about ${minutesLeft(o)} min`, ttl: 1800 }),
+  ready: (o) => ({
+    title: 'Your food is on its way', body: `${dishes(o.items)} · coming to ${tableName(o.table)} now`,
+    ttl: 900, requireInteraction: true, vibrate: [200, 100, 200, 100, 400]
+  }),
+  served: () => ({ title: 'Enjoy your meal', body: 'Tap to tell the chef how it was.', ttl: 900 }),
+  cancelled: (o) => ({ title: `Order #${o.number} was cancelled`, body: 'Please ask your server what happened.', ttl: 1800, requireInteraction: true })
 };
+
+/** Opens the menu at the guest's table, straight onto their order. Carries the table's QR code so it works with the QR rule on. */
+async function orderLink(order) {
+  return `/?table=${order.table}&k=${await tableCode(order.table)}&order=${order.publicId}`;
+}
+
+/** Push is a nicety: a failure here is logged, never thrown at the request that caused it. */
+const quietly = (fn) => (...args) => fn(...args).catch((err) => console.error('Push failed:', err.message));
 
 export const push = {
   orderCreated(order) {
@@ -88,18 +126,21 @@ export const push = {
       tag: 'call-' + call.id, url: '/admin'
     });
   },
-  orderUpdated(order) {
+  orderUpdated: quietly(async (order) => {
     const news = GUEST_NEWS[order.status]?.(order);
-    if (!news) return;
-    send({ orders: order.publicId }, {
-      title: news[0], body: news[1], tag: 'order-' + order.publicId, url: `/?table=${order.table}`
-    });
-  },
-  callAnswered(call) {
-    send({ table: call.table }, {
+    if (!news || order.table === 0) return;
+    const { ttl, ...shown } = news;
+    await send({ orders: order.publicId }, { ...shown, tag: 'order-' + order.publicId, url: await orderLink(order) }, ttl);
+  }),
+  callAnswered: quietly(async (call) => {
+    await send({ table: call.table }, {
       title: call.type === 'bill' ? 'Your bill is on its way' : 'A server is on the way',
-      body: `Table ${call.table} · they have seen your request.`,
-      tag: 'call-' + call.type, url: `/?table=${call.table}`
-    });
-  }
+      body: `${tableName(call.table)} · they have seen your request.`,
+      tag: 'call-' + call.type, url: `/?table=${call.table}&k=${await tableCode(call.table)}`
+    }, 300);
+  }),
+  /** The table has paid: its phones stop hearing about the next party's calls. */
+  forgetTable: (table) => PushSub.updateMany({ table, admin: false }, { table: null }).catch(() => {}),
+  /** The party moved: their phones follow them to the new table. */
+  moveTable: (from, to) => PushSub.updateMany({ table: from, admin: false }, { table: to }).catch(() => {})
 };

@@ -2,7 +2,7 @@ import { Category, Dish, Image, Order, ServiceCall, getSettings } from '../model
 import { ApiError, asyncHandler } from '../utils/ApiError.js';
 import { createOrder, toPublicOrder } from '../services/order.service.js';
 import { realtime } from '../services/socket.js';
-import { push, publicKey, removeSubscription, saveSubscription } from '../services/push.js';
+import { push, publicKey, removeSubscription, renewSubscription, saveSubscription } from '../services/push.js';
 import { assertTable, openOrders } from '../services/tables.js';
 import { ordersAhead, publicGame, rate, spin, tableSpins } from '../services/waiting.js';
 
@@ -68,6 +68,11 @@ export const pushKey = asyncHandler(async (_req, res) => res.json({ publicKey: a
 export const pushSubscribe = asyncHandler(async (req, res) => {
   await saveSubscription({ ...req.body, role: 'guest' });
   res.status(201).json({ ok: true });
+});
+
+/** POST /api/push/renew : the browser swapped its push address; keep listening for the same things. */
+export const pushRenew = asyncHandler(async (req, res) => {
+  res.json({ ok: await renewSubscription(req.body) });
 });
 
 export const pushUnsubscribe = asyncHandler(async (req, res) => {

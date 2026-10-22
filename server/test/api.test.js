@@ -13,7 +13,7 @@ const { connectDb } = await import('../src/config/db.js');
 const { createApp } = await import('../src/app.js');
 const { ensureSeed } = await import('../src/seed/seed.js');
 const { env } = await import('../src/config/env.js');
-const { Order, ServiceCall, Dish, TableVisit, Admin } = await import('../src/models/index.js');
+const { Order, ServiceCall, Dish, TableVisit, Admin, PushSub } = await import('../src/models/index.js');
 
 let server; let url; let cookie = ''; let codes = {}; let dish;
 
@@ -436,4 +436,30 @@ test('a locked-out owner gets back in with a one-time reset', async () => {
   assert.equal((await signIn('my-own-pass-456')).status, 200, 'leaving the variable set does not undo their new password');
   delete process.env.RESET_OWNER_PASSWORD;
   assert.equal((await Admin.findOne({ username: env.adminUsername.toLowerCase() })).mustChange, false);
+});
+
+test('guest alerts follow the party and stop when the table has paid', async () => {
+  const fake = (n) => ({ endpoint: `https://fcm.googleapis.com/fcm/send/test-${n}-${Date.now()}`, keys: { p256dh: 'p'.repeat(20), auth: 'a'.repeat(10) } });
+  const placed = await call('POST', '/orders', basket(20));
+  const phone = fake(1);
+  assert.equal((await call('POST', '/push/subscribe', { subscription: phone, orders: [placed.body.id], table: 20 })).status, 201);
+
+  // The browser swaps its push address: the new one keeps listening for the same order and table.
+  const renewed = fake(2);
+  assert.equal((await call('POST', '/push/renew', { old: phone.endpoint, subscription: renewed })).body.ok, true);
+  const sub = await PushSub.findOne({ endpoint: renewed.endpoint });
+  assert.deepEqual([sub.orders[0], sub.table], [placed.body.id, 20]);
+  assert.equal(await PushSub.countDocuments({ endpoint: phone.endpoint }), 0);
+
+  // The party moves: their phone hears about the new table's calls.
+  assert.equal((await call('POST', '/admin/tables/20/move', { to: 21 }, { admin: true })).status, 200);
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal((await PushSub.findOne({ endpoint: renewed.endpoint })).table, 21);
+
+  // They pay: the next party's calls at that table are not this phone's news.
+  const order = await Order.findOne({ publicId: placed.body.id });
+  for (const status of ['cooking', 'ready', 'served']) await call('PATCH', `/admin/orders/${order.id}`, { status }, { admin: true });
+  assert.equal((await call('POST', '/admin/tables/21/settle', null, { admin: true })).status, 200);
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  assert.equal((await PushSub.findOne({ endpoint: renewed.endpoint })).table, null);
 });

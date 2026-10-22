@@ -73,6 +73,68 @@ function Wheel({ prizes, order, onSpun }) {
   );
 }
 
+// Safari on iPhone and iPad gives a page notifications only once it is on the Home Screen.
+const IOS = typeof navigator !== 'undefined'
+  && (/iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+const ANDROID = typeof navigator !== 'undefined' && /Android/.test(navigator.userAgent);
+
+/**
+ * Can this phone hear about the order with the menu closed? Says so plainly,
+ * offers the one tap that turns it on, and is honest where the phone cannot.
+ */
+function AlertsCard({ alerts, pushed, onAlerts }) {
+  if (alerts === 'granted') {
+    return (
+      <div className="c-alertcard is-on" role="status">
+        <Icon name="bell" size={18} />
+        <span>
+          <b>{pushed === false ? 'Alerts are on while this page is open' : 'We will tell you when it moves'}</b>
+          <small>{pushed === false
+            ? 'This browser cannot get them with the page closed, so keep it open in the background.'
+            : 'You can close this page or lock your phone. The news arrives as a notification.'}</small>
+        </span>
+      </div>
+    );
+  }
+  if (alerts === 'default') {
+    return (
+      <button className="c-alertcard is-ask c-press" onClick={onAlerts}>
+        <span className="c-alertcard__ring" aria-hidden="true"><Icon name="bell" size={20} /></span>
+        <span>
+          <b>Tell me when my food is ready</b>
+          <small>One tap. You can then close this page; your phone buzzes when it is on its way.</small>
+        </span>
+        <span className="c-alertcard__go" aria-hidden="true">Turn on</span>
+      </button>
+    );
+  }
+  if (alerts === 'denied') {
+    return (
+      <div className="c-alertcard">
+        <Icon name="bell" size={18} />
+        <span>
+          <b>Notifications are blocked for this menu</b>
+          <small>{ANDROID
+            ? 'To get them: tap the icon left of the address, then Permissions, then allow Notifications. Or keep this page open; it updates by itself.'
+            : 'To get them, allow notifications for this site in your browser settings. Or keep this page open; it updates by itself.'}</small>
+        </span>
+      </div>
+    );
+  }
+  // Not possible here: iPhone Safari, or an in-app browser.
+  return (
+    <div className="c-alertcard">
+      <Icon name="clock" size={18} />
+      <span>
+        <b>Keep this page open</b>
+        <small>{IOS
+          ? 'iPhone only sends notifications from apps on the Home Screen, so leave this page open. It updates by itself, and your server brings the food either way.'
+          : 'This browser cannot send notifications. Leave the page open: it updates by itself, and your server brings the food either way.'}</small>
+      </span>
+    </div>
+  );
+}
+
 /** Stars and an optional line, once the meal is on the table. */
 function Rate({ order, onRated }) {
   const [stars, setStars] = useState(0);
@@ -118,7 +180,8 @@ function Rate({ order, onRated }) {
  */
 export default function WaitSheet({
   open, onClose, orders, dishes, settings, table,
-  cart, cartCount, cartTotal, onAdd, onSend, sending, onBasket, onOrder
+  cart, cartCount, cartTotal, onAdd, onSend, sending, onBasket, onOrder,
+  alerts, pushed, onAlerts
 }) {
   const currency = settings.currency;
   const live = orders.filter((o) => STEPS.slice(0, 3).includes(o.status));
@@ -193,6 +256,8 @@ export default function WaitSheet({
             </ol>
           )}
         </section>
+
+        {waiting && <AlertsCard alerts={alerts} pushed={pushed} onAlerts={onAlerts} />}
 
         {focus.status === 'served' && !focus.stars && <Rate order={focus} onRated={onOrder} />}
         {focus.stars > 0 && <p className="c-wait__thanks">Thank you. Your {focus.stars}-star rating has gone to the chef.</p>}

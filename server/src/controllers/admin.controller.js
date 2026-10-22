@@ -42,6 +42,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
 export const trimOrderItems = asyncHandler(async (req, res) => {
   const { order } = await trimOrder(req.params.id, req.body.items, req.staff.name);
   realtime.orderUpdated(order.toJSON(), toPublicOrder(order));
+  if (order.status === 'cancelled') push.orderUpdated(order.toJSON());
   res.json(order);
 });
 
@@ -55,6 +56,7 @@ export const settle = asyncHandler(async (req, res) => {
   if (!Number.isInteger(table) || table < 0) throw ApiError.badRequest('Unknown table.');
   const closed = await settleTable(table);
   realtime.tableSettled(table);
+  push.forgetTable(table);
   res.json({ ok: true, closed });
 });
 
@@ -72,6 +74,7 @@ export const moveToTable = asyncHandler(async (req, res) => {
   const moved = await moveTable(from, req.body.to, await getSettings());
   for (const order of moved) realtime.orderUpdated(order.toJSON(), toPublicOrder(order));
   realtime.tableSettled(from);
+  push.moveTable(from, req.body.to);
   res.json({ ok: true, moved: moved.length });
 });
 

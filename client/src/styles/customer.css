@@ -850,3 +850,17 @@
 .c-billgroup { padding-bottom: 6px; }
 .c-billgroup + .c-billgroup { margin-top: 10px; }
 .c-billgroup__head { display: flex; justify-content: space-between; gap: 12px; margin: 14px 0 2px; font: 600 11px var(--sans); letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold); }
+
+/* Will this phone hear about the order with the menu closed? */
+.c-alertcard { flex: none; width: 100%; display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: 18px; border: 1px solid var(--hair); background: rgb(var(--fg) / 0.035); text-align: left; color: var(--muted); font: inherit; }
+.c-alertcard > svg { flex: none; margin-top: 2px; color: var(--gold); }
+.c-alertcard > span { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.c-alertcard b { font-size: 15px; font-weight: 600; color: var(--text); }
+.c-alertcard small { font-size: 13px; line-height: 1.45; color: var(--muted); }
+.c-alertcard.is-on { border-color: rgb(var(--good-rgb) / 0.35); background: rgb(var(--good-rgb) / 0.07); }
+.c-alertcard.is-on > svg { color: var(--good); }
+.c-alertcard.is-ask { align-items: center; border: 1px solid rgb(var(--gold-rgb) / 0.5); background: linear-gradient(135deg, rgb(var(--gold-rgb) / 0.16), rgb(var(--gold-rgb) / 0.04)); cursor: pointer; }
+.c-alertcard__ring { flex: none; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: var(--gold); color: var(--dark, #1c1208); animation: cAlertRing 2.8s ease-in-out infinite; }
+.c-alertcard__go { flex: none; margin-left: auto; padding: 8px 14px; border-radius: 999px; background: var(--text); color: var(--card); font-size: 13px; font-weight: 700; }
+@keyframes cAlertRing { 0%, 70%, 100% { transform: rotate(0); } 76% { transform: rotate(14deg); } 82% { transform: rotate(-12deg); } 88% { transform: rotate(8deg); } 94% { transform: rotate(-4deg); } }
+@media (prefers-reduced-motion: reduce) { .c-alertcard__ring { animation: none; } }

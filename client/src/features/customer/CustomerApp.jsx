@@ -73,9 +73,10 @@ export default function CustomerApp() {
   const savedTable = seat.table;
   const [pending, setPending] = useState(null);                // what to finish once a table is chosen
   const { menu, error, reload: reloadMenu } = useMenu();
-  const { orders, addOrder, clearOrders, putOrder } = useOrders();
+  const { orders, addOrder, clearOrders, putOrder, followOrder } = useOrders();
   const { items: notices, push: notify, dismiss: dismissNotice } = useNotices();
   const [alerts, setAlerts] = useState(alertsState);
+  const [pushed, setPushed] = useState(null);   // null: not tried yet; true: this phone hears news with the menu closed
   const linked = useLiveLink();
 
   const [cart, setCart] = usePersistentState('sm.cart', {});   // { dishId: qty }
@@ -113,11 +114,31 @@ export default function CustomerApp() {
   };
 
   // With alerts allowed, keep the server's push list in step with this visit's orders and table.
+  // The table only while there are orders: after the bill is paid, the next party's calls are not this phone's news.
   const orderIds = orders.map((o) => o.id).join(',');
   useEffect(() => {
-    if (alerts !== 'granted' || (!orderIds && !savedTable)) return;
-    enablePush('guest', { orders: orderIds ? orderIds.split(',') : [], table: savedTable });
+    if (alerts !== 'granted' || !orderIds) return;
+    enablePush('guest', { orders: orderIds.split(','), table: savedTable }).then(setPushed);
   }, [alerts, orderIds, savedTable]);
+  const turnOnAlerts = useCallback(async () => setAlerts(await askForAlerts()), []);
+
+  // Opened from a notification: follow that order and show it. The service worker
+  // sends the same news to a menu that is already open.
+  const opened = useRef(false);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('order');
+    if (!id || opened.current || !/^[a-f0-9]{24}$/.test(id)) return;
+    opened.current = true;
+    followOrder(id);
+    setEntered(true);
+    setSheet('wait');
+    window.history.replaceState(null, '', window.location.pathname + window.location.search.replace(/[?&]order=[a-f0-9]{24}/, '').replace(/^&/, '?'));
+  }, [followOrder]);
+  useEffect(() => {
+    const onMessage = (e) => { if (e.data?.type === 'open') { setEntered(true); setSheet('wait'); } };
+    navigator.serviceWorker?.addEventListener('message', onMessage);
+    return () => navigator.serviceWorker?.removeEventListener('message', onMessage);
+  }, []);
 
   // Tell the guest when the kitchen moves their order on, wherever they are in the menu.
   useEffect(() => {
@@ -330,7 +351,7 @@ export default function CustomerApp() {
       notify({
         icon: 'receipt', title: `Order #${order.number} is with the kitchen`, sound: 'soft', ttl: offer ? 11000 : 7000,
         body: offer ? 'Tap here to be told on this phone when it moves, even with the menu closed.' : 'You will hear from us here the moment it moves.',
-        action: offer ? async () => setAlerts(await askForAlerts()) : () => setSheet('wait')
+        action: offer ? turnOnAlerts : () => setSheet('wait')
       });
     } catch (e) {
       refused(e);
@@ -399,7 +420,8 @@ export default function CustomerApp() {
       <WaitSheet open={sheet === 'wait'} onClose={() => setSheet(null)} orders={orders} dishes={dishes} settings={settings} table={table}
         cart={cart} cartCount={cartCount} cartTotal={cartTotal} sending={sending}
         onAdd={(d) => { setQty(d.id, (cart[d.id] || 0) + 1); setBump((b) => b + 1); }}
-        onSend={() => sendOrder()} onBasket={() => setSheet('order')} onOrder={putOrder} />
+        onSend={() => sendOrder()} onBasket={() => setSheet('order')} onOrder={putOrder}
+        alerts={alerts} pushed={pushed} onAlerts={turnOnAlerts} />
 
       <BillSheet open={sheet === 'bill'} onClose={() => setSheet(null)} orders={orders} tableOrders={tableBill} table={table} currency={settings.currency}
         onAsk={() => call('bill')} onNewVisit={() => { clearOrders(); setSheet(null); }} />

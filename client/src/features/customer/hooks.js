@@ -109,10 +109,14 @@ export function useOrders() {
     socket.on('connect', watch);
     socket.on('connect', refresh);
     socket.on('order:update', onUpdate);
-    // The queue ahead moves without any news for this order, so look again now and then.
+    // The queue ahead moves without any news for this order, so look again now and then,
+    // and at once when the guest comes back to the page (a phone may have paused it).
     const poll = setInterval(refresh, 25000);
+    const onBack = () => { if (!document.hidden) { watch(); refresh(); } };
+    document.addEventListener('visibilitychange', onBack);
     return () => {
       clearInterval(poll);
+      document.removeEventListener('visibilitychange', onBack);
       socket.off('connect', watch);
       socket.off('connect', refresh);
       socket.off('order:update', onUpdate);
@@ -125,8 +129,10 @@ export function useOrders() {
   }, [setRefs]);
 
   const clearOrders = useCallback(() => setRefs([]), [setRefs]);
+  /** Follow an order known only by its id, e.g. opened from a notification after the menu was closed. */
+  const followOrder = useCallback((id) => setRefs((list) => (list.some((r) => r.id === id) ? list : [...list, { id, at: Date.now() }])), [setRefs]);
   /** Put a fresher copy of one order in place (after a spin or a rating). */
   const putOrder = useCallback((order) => setOrders((list) => list.map((o) => (o.id === order.id ? { ...o, ...order } : o))), []);
 
-  return { orders, addOrder, clearOrders, putOrder };
+  return { orders, addOrder, clearOrders, putOrder, followOrder };
 }

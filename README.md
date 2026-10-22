@@ -81,7 +81,7 @@ The **Kitchen screen** is made for a tablet on the pass. It shows big tickets in
 ## Live notifications
 
 - **In the page:** guests see a notice each time the kitchen moves their order on or answers a call from their table. The admin panel shows a notice, rings and vibrates for every new order and table call, and repeats a quiet reminder each minute while something is waiting. The bell in the admin header keeps the last 20 alerts and has the sound switch.
-- **Push (page closed):** guests tap "Alert me when it moves" in the order sheet; staff tap the button under the admin bell. This needs HTTPS (or `localhost`). On iPhone the site must first be added to the Home Screen.
+- **Push (page closed):** after ordering, the guest's waiting screen offers **Tell me when my food is ready**: one tap, then they can close the page or lock the phone. They are told when it starts cooking (with what and how long), when it leaves the kitchen (this one stays on screen and buzzes longer until seen), when it is served, and if it is cancelled. Tapping a notification opens the menu straight onto their order, even if the browser had been closed. If notifications are blocked, or the phone cannot get them (iPhone Safari only allows them for sites on the Home Screen), the screen says so and how to fix it. When the table is paid, those phones stop hearing about that table; if the party moves table, their alerts follow them. Staff turn on push under the admin bell. Needs HTTPS (or `localhost`).
 - **Keys:** push signing keys are created on first use and stored in the database. To supply your own, set `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`; set `VAPID_SUBJECT` to a real contact address (`mailto:you@yourrestaurant.com`).
 
 ## Ordering rules
