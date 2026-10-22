@@ -19,6 +19,26 @@ const settingSchema = new Schema({
     prizes: [{ _id: false, label: { type: String, trim: true, maxlength: 30 }, weight: { type: Number, min: 1, max: 100 }, win: { type: Boolean, default: true } }]
   },
   requireQr: { type: Boolean, default: false },  // only take orders that come from a scanned table QR code (off until the owner turns it on)
+  // Where guests can follow, message or review the restaurant. Shown after the meal.
+  social: {
+    instagram: { type: String, default: '', trim: true },
+    whatsapp: { type: String, default: '', trim: true },   // the restaurant's WhatsApp number
+    google: { type: String, default: '', trim: true },     // the Google review link
+    zomato: { type: String, default: '', trim: true },
+    swiggy: { type: String, default: '', trim: true }
+  },
+  // The guest club, its stamp card and its reminders (see services/club.js).
+  club: {
+    on: { type: Boolean, default: true },
+    loyalty: { type: Boolean, default: true },
+    stamps: { type: Number, default: 5, min: 2, max: 20 },
+    reward: { type: String, default: 'A dessert on us', trim: true },
+    minSpend: { type: Number, default: 0, min: 0 },
+    remind: { type: Boolean, default: false },
+    remindDays: { type: Number, default: 30, min: 7, max: 365 },
+    missYou: { type: String, default: '', trim: true },
+    birthday: { type: String, default: '', trim: true }
+  },
   // What the printed bill shows under the name. The tax is split into CGST and SGST when a GSTIN is set.
   address: { type: String, default: '', trim: true },
   phone: { type: String, default: '', trim: true },
@@ -94,6 +114,7 @@ const orderSchema = new Schema({
   paidBy: { type: String, enum: ['cash', 'upi', 'card'] }, // how, as staff recorded it when marking the table paid
   paidAt: Date,
   visit: { type: String },                        // the party at the table (see services/tables.js): one bill, one spin
+  guest: { type: Schema.Types.ObjectId, ref: 'Guest', index: true }, // a club member who ordered it
   clientKey: { type: String }                     // made by the guest's phone, so a retried send is not a second order
 }, jsonOptions);
 orderSchema.index({ createdAt: -1 });
@@ -154,6 +175,27 @@ const adminSchema = new Schema({
   mustChange: { type: Boolean }
 }, jsonOptions);
 
+/* ---------------------------------- Guest club ---------------------------------- */
+// Guests who chose to join: for offers, reminders and the stamp card. Deleted when they leave.
+const guestSchema = new Schema({
+  name: { type: String, required: true, trim: true, maxlength: 40 },
+  phone: { type: String, required: true, unique: true },          // country code and digits, e.g. 919876543210
+  birthday: { _id: false, day: { type: Number, min: 1, max: 31 }, month: { type: Number, min: 1, max: 12 } },
+  consentAt: { type: Date, required: true },                       // when they ticked the box
+  keys: { type: [String], default: [], index: true },               // one per phone that joined: lets that phone show the card
+  offers: { _id: false, endpoint: String, keys: { p256dh: String, auth: String } }, // push for offers and reminders
+  visits: { type: Number, default: 0 },
+  spent: { type: Number, default: 0 },
+  lastVisitAt: { type: Date, index: true },
+  seenVisits: { type: [String], default: [] },                      // visits already counted
+  stamps: { type: Number, default: 0 },
+  rewardsReady: { type: Number, default: 0 },
+  rewardsUsed: { type: Number, default: 0 },
+  sent: { type: Number, default: 0 },                              // offers sent to them
+  lastMissYouAt: Date,
+  lastBirthdayYear: Number
+}, jsonOptions);
+
 /* --------------------------------- Table visits -------------------------------- */
 // Which party is sitting at each table now. One small document per table, changed only by compare-and-swap.
 const tableVisitSchema = new Schema({
@@ -173,6 +215,7 @@ export const PushKey = model('PushKey', pushKeySchema);
 export const Image = model('Image', imageSchema);
 export const Secret = model('Secret', secretSchema);
 export const TableVisit = model('TableVisit', tableVisitSchema);
+export const Guest = model('Guest', guestSchema);
 
 /** Always returns the single settings document, creating it if needed. */
 export async function getSettings() {

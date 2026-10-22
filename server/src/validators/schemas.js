@@ -34,6 +34,7 @@ export const orderSchema = z.object({
   table: z.coerce.number().int().min(1).max(500),
   code: tableCode,
   clientKey: z.string().regex(/^[\w-]{16,64}$/).optional(),
+  guestKey: z.string().regex(/^[a-f0-9]{24}$/).optional(),
   expected: z.coerce.number().min(0).max(100000000).optional(),
   items: z.array(z.object({
     dishId: objectId,
@@ -146,4 +147,43 @@ export const settingsSchema = z.object({
   phone: text(30).default(''),
   gstin: z.string().trim().toUpperCase().regex(/^([0-9A-Z]{15})?$/, 'A GSTIN is 15 letters and numbers').default(''),
   billNote: text(120).default('')
+});
+
+/* --------------------------------- Guest club --------------------------------- */
+const clubKey = z.string().regex(/^[a-f0-9]{24}$/, 'Unknown card');
+
+export const clubJoinSchema = z.object({
+  name: text(40).min(1, 'Please tell us your name'),
+  phone: z.string().trim().min(8, 'Please enter your mobile number').max(20),
+  birthday: z.object({ day: z.number().int().min(1).max(31), month: z.number().int().min(1).max(12) }).optional(),
+  consent: z.literal(true, { errorMap: () => ({ message: 'Please tick the box to join.' }) }),
+  orders: z.array(z.string().regex(/^[a-f0-9]{24}$/)).max(30).default([]),
+  subscription: subscription.optional()
+});
+export const clubKeySchema = z.object({ key: clubKey });
+export const clubPushSchema = z.object({ key: clubKey, subscription });
+
+export const offerSchema = z.object({
+  ids: z.array(objectId).min(1, 'Choose who to send it to').max(1000),
+  title: text(60).min(1, 'Give the offer a title'),
+  body: text(200).min(1, 'Write the offer')
+});
+
+const link = z.string().trim().max(300).regex(/^(https?:\/\/[^\s]+)?$/, 'Links start with https://').default('');
+export const clubSettingsSchema = z.object({
+  social: z.object({
+    instagram: link, google: link, zomato: link, swiggy: link,
+    whatsapp: z.string().trim().max(20).regex(/^(\+?[\d\s-]{8,20})?$/, 'Enter the WhatsApp number with country code').default('')
+  }),
+  club: z.object({
+    on: z.boolean(),
+    loyalty: z.boolean(),
+    stamps: z.coerce.number().int().min(2).max(20),
+    reward: text(60).min(1, 'Say what the reward is'),
+    minSpend: z.coerce.number().min(0).max(100000),
+    remind: z.boolean(),
+    remindDays: z.coerce.number().int().min(7).max(365),
+    missYou: text(200).min(1, 'Write the reminder'),
+    birthday: text(200).min(1, 'Write the birthday message')
+  })
 });

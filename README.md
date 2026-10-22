@@ -78,6 +78,23 @@ Each order keeps a trail of who moved it and when. Switching an account off sign
 
 The **Kitchen screen** is made for a tablet on the pass. It shows big tickets in three columns (to start, cooking, ready), each with a clock that turns amber, then red, as the order runs long. It also shows the "all day" count of every dish still to cook. Cooks tap a line to tick it off and press and hold to move an order on, so a stray touch does nothing. Full screen is one tap, and the screen stays awake.
 
+## Guest club, stamp card and offers
+
+Guests can join the restaurant's club from their phone: while they wait for food, on the bill, or from a club notification. They leave their name, WhatsApp number and, if they like, their birthday, and must tick a box agreeing to offers themselves. **Leave the club** on their card deletes everything about them (what India's DPDP Act asks for); staff can also delete someone who asks.
+
+- **Stamp card.** A stamp for each paid visit (optionally only above a minimum bill). A full card becomes a reward, for example "A dessert on us". The guest sees their card on their phone, and staff see "reward waiting" next to the table under Orders → Open tables and hand it over with one tap. A phone that joined is remembered, so its later orders count without asking again. Each visit is counted once, however many times the table is paid or the guest joins.
+- **Guests page** (owner and manager): everyone who joined with visits, total spent, stamps, last visit and favourite dish. Ready-made groups: not seen lately, birthdays this month, top spenders, reward waiting, and everyone who ordered a given dish. Download the list as a spreadsheet.
+- **Offers.** Write an offer (`{name}` becomes each guest's first name), then send it:
+  - as a **notification**, free and instant, to guests who allowed notifications (not iPhones)
+  - on **WhatsApp, one tap each**: WhatsApp opens with the message written for that guest, and you press send
+  - for long lists, download the list and use a broadcast list in the WhatsApp Business app
+
+  Sending WhatsApp messages automatically needs Meta's paid WhatsApp Business API, which is not used here.
+- **Reminders** (off until switched on): a "we miss you" notification once a member has not visited for a set number of days, and a birthday message, between 10 am and 8 pm (India time; set `RESTAURANT_TZ` to change it). These need the server awake, so see the note about Render's free plan.
+- **Find us online.** Instagram, WhatsApp, Google review, Zomato and Swiggy links, shown to guests after the meal. Guests who give 4 or 5 stars are asked to post a Google review.
+
+Set it all up under Settings → Guests, loyalty and social.
+
 ## Live notifications
 
 - **In the page:** guests see a notice each time the kitchen moves their order on or answers a call from their table. The admin panel shows a notice, rings and vibrates for every new order and table call, and repeats a quiet reminder each minute while something is waiting. The bell in the admin header keeps the last 20 alerts and has the sound switch.

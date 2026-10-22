@@ -23,17 +23,18 @@ import KitchenScreen from './KitchenScreen.jsx';
 import StaffPage from './StaffPage.jsx';
 import AccountPage from './AccountPage.jsx';
 import ChoosePassword from './ChoosePassword.jsx';
+import GuestsPage from './GuestsPage.jsx';
 import '../../styles/admin.css';
 
 // Sections grouped by what they are for. [id, label, icon]
 const NAV = [
   { group: 'Today', items: [['home', 'Home', 'home'], ['orders', 'Orders', 'receipt'], ['kitchen', 'Kitchen screen', 'chef', 'Kitchen']] },
-  { group: 'Your business', items: [['reports', 'Reports', 'chart'], ['history', 'History', 'clock']] },
+  { group: 'Your business', items: [['reports', 'Reports', 'chart'], ['guests', 'Guests', 'heart'], ['history', 'History', 'clock']] },
   { group: 'Your menu', items: [['menu', 'Dishes', 'dish'], ['categories', 'Categories', 'grid']] },
   { group: 'Setup', items: [['tables', 'Tables & QR', 'qr'], ['staff', 'Staff', 'users'], ['settings', 'Settings', 'gear'], ['account', 'My account', 'user']] }
 ];
 // What a role must be allowed to do to see each section. Sections not listed are open to everyone signed in.
-const NEEDS = { orders: ['orders'], kitchen: ['orders'], reports: ['reports'], history: ['reports'], menu: ['menu', 'soldout'], categories: ['menu'], tables: ['qr'], staff: ['staff'], settings: ['settings'] };
+const NEEDS = { guests: ['guests'], orders: ['orders'], kitchen: ['orders'], reports: ['reports'], history: ['reports'], menu: ['menu', 'soldout'], categories: ['menu'], tables: ['qr'], staff: ['staff'], settings: ['settings'] };
 const BAR_ORDER = ['home', 'orders', 'kitchen', 'reports', 'menu']; // the first four this person may use go on the phone's bottom bar
 const ROLE_NAMES = { owner: 'Owner', manager: 'Manager', waiter: 'Waiter', kitchen: 'Kitchen' };
 
@@ -271,6 +272,7 @@ function Panel({ user, onLogout }) {
           {tab === 'home' && <HomePage {...data} alerts={alerts} go={go} onAlerts={enableAlerts} can={can} sections={sections} />}
           {tab === 'kitchen' && <KitchenScreen orders={data.orders} can={can} connected={data.connected} />}
           {tab === 'staff' && <StaffPage me={user} />}
+          {tab === 'guests' && <GuestsPage settings={data.settings} can={can} setError={data.setError} />}
           {tab === 'account' && <AccountPage me={user} />}
           {tab === 'orders' && <OrdersBoard {...data} can={can} open={target} onOpened={() => setTarget(null)} onSending={() => { sending.current += 1; setTimeout(() => { sending.current = Math.max(0, sending.current - 1); }, 10000); }} />}
           {tab === 'history' && <HistoryPage settings={data.settings} setError={data.setError} />}

@@ -5,6 +5,8 @@ import { realtime } from '../services/socket.js';
 import { push, publicKey, removeSubscription, renewSubscription, saveSubscription } from '../services/push.js';
 import { assertTable, openOrders } from '../services/tables.js';
 import { ordersAhead, publicGame, rate, spin, tableSpins } from '../services/waiting.js';
+import * as club from '../services/club.js';
+import { clubOf } from '../services/club.js';
 
 /** GET /api/menu : everything the customer app needs in one request. */
 export const getMenu = asyncHandler(async (_req, res) => {
@@ -14,8 +16,17 @@ export const getMenu = asyncHandler(async (_req, res) => {
     Dish.find().sort({ sort: 1, name: 1 })
   ]);
   const { name, tagline, welcome, currency, taxPercent, tables, requireQr } = settings;
+  const { on, loyalty, stamps, reward, minSpend } = clubOf(settings);
+  const social = settings.social || {};
   res.set('Cache-Control', 'no-store');
-  res.json({ settings: { name, tagline, welcome, currency, taxPercent, tables, requireQr, game: publicGame(settings) }, categories, dishes });
+  res.json({
+    settings: {
+      name, tagline, welcome, currency, taxPercent, tables, requireQr, game: publicGame(settings),
+      social: { instagram: social.instagram || '', whatsapp: social.whatsapp || '', google: social.google || '', zomato: social.zomato || '', swiggy: social.swiggy || '' },
+      club: { on, loyalty, stamps, reward, minSpend }
+    },
+    categories, dishes
+  });
 });
 
 /** POST /api/orders */
@@ -113,3 +124,19 @@ export const rateOrder = asyncHandler(async (req, res) => {
   realtime.orderUpdated(order.toJSON(), toPublicOrder(order));
   res.json(toPublicOrder(order));
 });
+
+/* --------------------------------- Guest club --------------------------------- */
+/** POST /api/club/join : the guest ticked the box and left their name and number. */
+export const clubJoin = asyncHandler(async (req, res) => res.status(201).json(await club.join(req.body)));
+
+/** GET /api/club/card?key= : this phone's stamp card. */
+export const clubCard = asyncHandler(async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(await club.card(req.query.key));
+});
+
+/** POST /api/club/push : offers and reminders may come to this phone as notifications. */
+export const clubPush = asyncHandler(async (req, res) => { await club.saveOffersPush(req.body.key, req.body.subscription); res.json({ ok: true }); });
+
+/** POST /api/club/leave : the guest leaves; everything about them is deleted. */
+export const clubLeave = asyncHandler(async (req, res) => { await club.leave(req.body.key); res.json({ ok: true }); });

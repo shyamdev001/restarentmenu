@@ -71,6 +71,85 @@ function WheelSettings({ game, reload }) {
   );
 }
 
+/** Links guests see after the meal, the guest club, its stamp card, and reminders. */
+function ClubSettings({ settings, reload }) {
+  const s = settings.social || {};
+  const c = settings.club || {};
+  const [form, setForm] = useState({
+    instagram: s.instagram || '', whatsapp: s.whatsapp || '', google: s.google || '', zomato: s.zomato || '', swiggy: s.swiggy || '',
+    on: c.on !== false, loyalty: c.loyalty !== false, stamps: c.stamps || 5, reward: c.reward || 'A dessert on us', minSpend: c.minSpend || 0,
+    remind: !!c.remind, remindDays: c.remindDays || 30, missYou: c.missYou || '', birthday: c.birthday || ''
+  });
+  const [state, setState] = useState({ busy: false, error: '', ok: '' });
+  const field = (name) => ({ value: form[name], onChange: (e) => setForm((f) => ({ ...f, [name]: e.target.value })) });
+  const check = (name) => ({ checked: !!form[name], onChange: (e) => setForm((f) => ({ ...f, [name]: e.target.checked })) });
+
+  const save = async (e) => {
+    e.preventDefault();
+    setState({ busy: true, error: '', ok: '' });
+    try {
+      await api.put('/admin/settings/club', {
+        social: { instagram: form.instagram, whatsapp: form.whatsapp, google: form.google, zomato: form.zomato, swiggy: form.swiggy },
+        club: { on: form.on, loyalty: form.loyalty, stamps: Number(form.stamps), reward: form.reward, minSpend: Number(form.minSpend) || 0,
+          remind: form.remind, remindDays: Number(form.remindDays), missYou: form.missYou, birthday: form.birthday }
+      });
+      await reload();
+      setState({ busy: false, error: '', ok: 'Saved. Guests see it straight away.' });
+    } catch (err) { setState({ busy: false, error: err.message, ok: '' }); }
+  };
+
+  return (
+    <form className="a-card a-form" onSubmit={save}>
+      <h2 className="a-sub is-wide">Find us online <span className="a-hint">shown to guests after the meal; leave empty to hide</span></h2>
+      <label className="a-label">Instagram<input type="url" placeholder="https://instagram.com/yourrestaurant" {...field('instagram')} /></label>
+      <label className="a-label">WhatsApp number<input type="tel" placeholder="+91 98765 43210" {...field('whatsapp')} /></label>
+      <label className="a-label is-wide">Google review link <span className="a-hint">Google Business Profile → Ask for reviews → copy the link. Guests who give 4 or 5 stars are asked to post it there.</span>
+        <input type="url" placeholder="https://g.page/r/…/review" {...field('google')} /></label>
+      <label className="a-label">Zomato<input type="url" placeholder="https://www.zomato.com/…" {...field('zomato')} /></label>
+      <label className="a-label">Swiggy<input type="url" placeholder="https://www.swiggy.com/…" {...field('swiggy')} /></label>
+
+      <h2 className="a-sub is-wide a-form__head">Guest club and stamp card</h2>
+      <label className="a-check is-wide"><input type="checkbox" {...check('on')} />
+        <span>Invite guests to join the club
+          <span className="a-hint" style={{ display: 'block' }}>They leave their name, WhatsApp number and, if they like, their birthday. They must tick the box themselves, and can leave any time, which deletes them. You then see them under Guests.</span>
+        </span>
+      </label>
+      {form.on && (
+        <>
+          <label className="a-check is-wide"><input type="checkbox" {...check('loyalty')} /><span>Give a stamp for every paid visit</span></label>
+          {form.loyalty && (
+            <>
+              <label className="a-label">Stamps for a reward<input type="number" min="2" max="20" required {...field('stamps')} /></label>
+              <label className="a-label">The reward<input maxLength={60} required placeholder="A dessert on us" {...field('reward')} /></label>
+              <label className="a-label">Smallest bill that earns a stamp <span className="a-hint">0 for any bill</span>
+                <input type="number" min="0" step="1" {...field('minSpend')} /></label>
+            </>
+          )}
+
+          <h2 className="a-sub is-wide a-form__head">Reminders</h2>
+          <label className="a-check is-wide"><input type="checkbox" {...check('remind')} />
+            <span>Send reminders automatically
+              <span className="a-hint" style={{ display: 'block' }}>A notification, between 10 am and 8 pm, to members who allowed notifications: once when they have not visited for a while, and on their birthday.</span>
+            </span>
+          </label>
+          {form.remind && (
+            <>
+              <label className="a-label">"We miss you" after (days)<input type="number" min="7" max="365" required {...field('remindDays')} /></label>
+              <span />
+              <label className="a-label is-wide">"We miss you" message <span className="a-hint">{'{name}'} becomes their first name</span>
+                <input maxLength={200} required placeholder="We miss you, {name}! Come back this week and the chai is on us." {...field('missYou')} /></label>
+              <label className="a-label is-wide">Birthday message
+                <input maxLength={200} required placeholder="Happy birthday, {name}! Visit us this month for a treat on the house." {...field('birthday')} /></label>
+            </>
+          )}
+        </>
+      )}
+      <Feedback state={state} />
+      <div className="is-wide"><button className="a-btn is-gold" disabled={state.busy}>{state.busy ? 'Saving…' : 'Save'}</button></div>
+    </form>
+  );
+}
+
 export default function SettingsPage({ settings, reload }) {
   const { name, tagline, welcome, currency, taxPercent, tables, publicUrl, requireQr, address = '', phone = '', gstin = '', billNote = '' } = settings;
   const main = useForm({ name, tagline, welcome, currency, taxPercent, tables, publicUrl, requireQr: !!requireQr, address, phone, gstin, billNote });
@@ -105,6 +184,9 @@ export default function SettingsPage({ settings, reload }) {
         <Feedback state={main.state} />
         <div className="is-wide"><button className="a-btn is-gold" disabled={main.state.busy}>{main.state.busy ? 'Saving…' : 'Save settings'}</button></div>
       </form>
+
+      <h2 className="a-sub">Guests, loyalty and social</h2>
+      <ClubSettings settings={settings} reload={reload} />
 
       <h2 className="a-sub">While guests wait</h2>
       <WheelSettings game={settings.game} reload={reload} />

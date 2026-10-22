@@ -21,6 +21,11 @@ router.post('/push/subscribe', pushLimiter, validate(s.pushGuestSchema), pub.pus
 router.post('/push/unsubscribe', pushLimiter, validate(s.pushRemoveSchema), pub.pushUnsubscribe);
 router.post('/push/renew', pushLimiter, validate(s.pushRenewSchema), pub.pushRenew);
 
+router.post('/club/join', publicWriteLimiter, validate(s.clubJoinSchema), pub.clubJoin);
+router.get('/club/card', pub.clubCard);
+router.post('/club/push', pushLimiter, validate(s.clubPushSchema), pub.clubPush);
+router.post('/club/leave', publicWriteLimiter, validate(s.clubKeySchema), pub.clubLeave);
+
 /* ------------------------------------ Auth ----------------------------------- */
 router.post('/auth/login', loginLimiter, validate(s.loginSchema), auth.login);
 router.post('/auth/logout', auth.logout);
@@ -67,6 +72,13 @@ a.get('/settings', admin.readSettings);
 a.put('/settings/game', allow('settings'), validate(s.gameSchema), admin.updateGame);
 a.put('/settings', allow('settings'), validate(s.settingsSchema), admin.updateSettings);
 a.get('/qr/:table', allow('qr'), admin.tableQr);
+
+a.get('/guests', allow('guests'), admin.guestList);
+a.get('/guests/export', allow('guests'), admin.guestCsv);
+a.post('/guests/offer', allow('guests'), validate(s.offerSchema), admin.guestOffer);
+a.post('/guests/:id/redeem', allow('settle'), admin.guestRedeem);
+a.delete('/guests/:id', allow('guests'), admin.guestRemove);
+a.put('/settings/club', allow('settings'), validate(s.clubSettingsSchema), admin.updateClub);
 
 a.get('/staff', allow('staff'), admin.staffList);
 a.post('/staff', allow('staff'), validate(s.staffAddSchema), admin.staffAdd);

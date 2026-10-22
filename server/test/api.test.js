@@ -13,7 +13,7 @@ const { connectDb } = await import('../src/config/db.js');
 const { createApp } = await import('../src/app.js');
 const { ensureSeed } = await import('../src/seed/seed.js');
 const { env } = await import('../src/config/env.js');
-const { Order, ServiceCall, Dish, TableVisit, Admin, PushSub } = await import('../src/models/index.js');
+const { Order, ServiceCall, Dish, TableVisit, Admin, PushSub, Guest } = await import('../src/models/index.js');
 
 let server; let url; let cookie = ''; let codes = {}; let dish;
 
@@ -481,4 +481,75 @@ test('marking a table paid records cash, UPI or card, and reports add them up', 
   assert.ok(report.byDay.at(-1).upi >= saved.total, 'each day shows its UPI total');
   const csv = await fetch(`${url}/api/admin/reports/export?kind=orders&tz=UTC`, { headers: { cookie } });
   assert.match(await csv.text(), /,UPI\r\n/);
+});
+
+test('the guest club: joining, stamps for paid visits, a reward, offers and leaving', async () => {
+  const { normalisePhone, sendReminders } = await import('../src/services/club.js');
+  assert.equal(normalisePhone('098765 43210'), '919876543210');
+  assert.equal(normalisePhone('+91 98765-43210'), '919876543210');
+  assert.equal(normalisePhone('12345'), null);
+  assert.equal(normalisePhone('9112345678901'), null, 'an Indian number must start with 6 to 9');
+
+  // The stamp card: three paid visits for a reward, each visit at least 100.
+  const club = { on: true, loyalty: true, stamps: 3, reward: 'Free kulfi', minSpend: 100, remind: true, remindDays: 30, missYou: 'We miss you, {name}', birthday: 'Happy birthday, {name}' };
+  assert.equal((await call('PUT', '/admin/settings/club', { social: { instagram: 'https://instagram.com/saffron', whatsapp: '+91 98765 43210', google: '', zomato: '', swiggy: '' }, club }, { admin: true })).status, 200);
+  const menu = (await call('GET', '/menu')).body.settings;
+  assert.equal(menu.club.reward, 'Free kulfi');
+  assert.equal(menu.social.instagram, 'https://instagram.com/saffron');
+
+  // Ordered first, joined after: the order is still counted.
+  const first = await call('POST', '/orders', basket(23));
+  assert.equal((await call('POST', '/club/join', { name: 'Ravi Kumar', phone: '9876543210', orders: [first.body.id] })).status, 400, 'no join without ticking the box');
+  const joined = await call('POST', '/club/join', { name: 'Ravi Kumar', phone: '9876543210', consent: true, orders: [first.body.id] });
+  assert.equal(joined.status, 201);
+  const key = joined.body.key;
+  assert.equal(joined.body.card.name, 'Ravi');
+  assert.equal(joined.body.card.stamps, 0, 'nothing until the table pays');
+
+  const pay = async (table, placed) => {
+    for (const p of placed) {
+      const order = await Order.findOne({ publicId: p.body.id });
+      for (const status of ['cooking', 'ready', 'served']) await call('PATCH', `/admin/orders/${order.id}`, { status }, { admin: true });
+    }
+    assert.equal((await call('POST', `/admin/tables/${table}/settle`, { method: 'cash' }, { admin: true })).status, 200);
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  };
+  const open = (await call('GET', '/admin/tables/open', null, { admin: true })).body.find((t) => t.table === 23);
+  assert.equal(open.members[0].name, 'Ravi Kumar', 'staff see the member at the table');
+  await pay(23, [first]);
+  let card = (await call('GET', `/club/card?key=${key}`)).body;
+  assert.deepEqual([card.visits, card.stamps], [1, 1]);
+
+  // Next visits: the phone sends its key with the order.
+  const second = await call('POST', '/orders', basket(24, { guestKey: key }));
+  await pay(24, [second]);
+  const third = await call('POST', '/orders', basket(25, { guestKey: key }));
+  await pay(25, [third]);
+  card = (await call('GET', `/club/card?key=${key}`)).body;
+  assert.deepEqual([card.visits, card.stamps, card.rewardsReady], [3, 0, 1], 'a full card becomes a reward');
+
+  // Paying twice for the same visit, or joining again from another phone, never counts it twice.
+  const again = await call('POST', '/club/join', { name: 'Someone', phone: '+91 98765 43210', consent: true, orders: [first.body.id] });
+  assert.equal(again.body.welcomeBack, true);
+  assert.equal((await call('GET', `/club/card?key=${again.body.key}`)).body.visits, 3);
+  assert.equal((await Guest.findOne({ phone: '919876543210' })).name, 'Ravi Kumar', 'a second join does not rename them');
+
+  // Staff: the list, a reward handed over, an offer.
+  const list = (await call('GET', '/admin/guests?filter=reward', null, { admin: true })).body;
+  const ravi = list.guests.find((g) => g.phone === '919876543210');
+  assert.ok(ravi && ravi.favourite && ravi.visits === 3);
+  assert.equal(list.summary.rewards, 1);
+  assert.equal((await call('POST', `/admin/guests/${ravi.id}/redeem`, null, { admin: true })).body.rewardsReady, 0);
+  assert.equal((await call('POST', `/admin/guests/${ravi.id}/redeem`, null, { admin: true })).status, 409, 'only once');
+  const offer = await call('POST', '/admin/guests/offer', { ids: [ravi.id], title: 'Weekend', body: 'Hi {name}, 20% off' }, { admin: true });
+  assert.deepEqual(offer.body, { sent: 0, unreachable: 1 }, 'no notifications allowed on that phone, so none sent');
+  const csv = await fetch(`${url}/api/admin/guests/export`, { headers: { cookie } });
+  assert.match(await csv.text(), /Ravi Kumar,91 98765 43210,/);
+  assert.deepEqual(await sendReminders(), (await sendReminders()), 'reminders never error, and repeat nothing');
+
+  // Leaving deletes them; their orders stay, unnamed.
+  assert.equal((await call('POST', '/club/leave', { key })).status, 200);
+  assert.equal(await Guest.countDocuments({ phone: '919876543210' }), 0);
+  assert.equal(await Order.countDocuments({ publicId: first.body.id, guest: { $exists: true } }), 0);
+  assert.equal((await call('GET', `/club/card?key=${key}`)).status, 404);
 });

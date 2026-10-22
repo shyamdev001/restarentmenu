@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import Sheet from './Sheet.jsx';
 import { money } from '../../lib/format.js';
+import { ClubCard, SocialLinks } from './Club.jsx';
 
 /** Itemised bill for everything this table has sent to the kitchen. Payment happens with the server. */
-export default function BillSheet({ open, onClose, orders, tableOrders, table, currency, onAsk, onNewVisit }) {
+export default function BillSheet({ open, onClose, orders, tableOrders, table, currency, onAsk, onNewVisit, club, restaurant, social, member }) {
   // The whole table's bill when the server can give it, otherwise what this phone ordered.
   const shared = Array.isArray(tableOrders);
   const billed = (shared ? tableOrders : orders).filter((o) => o.status !== 'cancelled');
@@ -57,6 +58,8 @@ export default function BillSheet({ open, onClose, orders, tableOrders, table, c
       )}
       <button className="c-cta is-gold c-press" disabled={!billed.length || asked} onClick={() => { setAsked(true); onAsk(); }}>{asked ? 'Bill requested' : 'Ask for the bill'}</button>
       {allServed && !shared && <button className="c-ghost c-press" onClick={onNewVisit}>Start a new visit</button>}
+      {billed.length > 0 && <ClubCard club={club} restaurant={restaurant} orders={orders} member={member} />}
+      {billed.length > 0 && <SocialLinks social={social} />}
     </Sheet>
   );
 }

@@ -9,6 +9,9 @@ import { fullName } from '../../lib/format.js';
 const ALL_PLACES = [
   { label: 'Orders board', where: 'Orders', to: 'orders', words: 'new cooking ready served kitchen live cancel order' },
   { label: 'Kitchen screen', where: 'Kitchen screen', to: 'kitchen', words: 'kds kitchen display tickets chef cook tablet pass timer' },
+  { label: 'Guests and offers', where: 'Guests', to: 'guests', words: 'customers guests club members offers ads marketing whatsapp birthday loyalty remind come back crm list' },
+  { label: 'Stamp card and reminders', where: 'Settings', to: 'settings', words: 'loyalty stamps reward card reminder miss you birthday club' },
+  { label: 'Instagram, WhatsApp and Google review links', where: 'Settings', to: 'settings', words: 'instagram whatsapp google review zomato swiggy social follow links' },
   { label: 'Add or remove staff', where: 'Staff', to: 'staff', words: 'staff waiter cook chef manager employee user role permission login account' },
   { label: 'Enter an order yourself', where: 'Orders', to: 'orders', extra: { newOrder: true }, needs: 'enter', words: 'manual new order takeaway counter walk-in phone parcel staff' },
   { label: 'Spoken order call-outs', where: 'Bell, top right', run: 'bell', words: 'voice speak announce read aloud kitchen call out' },

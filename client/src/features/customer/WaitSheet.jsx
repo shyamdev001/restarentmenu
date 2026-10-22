@@ -3,6 +3,7 @@ import Sheet from './Sheet.jsx';
 import Icon from '../../components/Icon.jsx';
 import { api } from '../../lib/api.js';
 import StageArt from './StageArt.jsx';
+import { ClubCard, SocialLinks } from './Club.jsx';
 import { HEAT_LABELS, fullName, money, pad2, thumb } from '../../lib/format.js';
 
 const STEPS = ['new', 'cooking', 'ready', 'served'];
@@ -181,7 +182,7 @@ function Rate({ order, onRated }) {
 export default function WaitSheet({
   open, onClose, orders, dishes, settings, table,
   cart, cartCount, cartTotal, onAdd, onSend, sending, onBasket, onOrder,
-  alerts, pushed, onAlerts
+  alerts, pushed, onAlerts, member
 }) {
   const currency = settings.currency;
   const live = orders.filter((o) => STEPS.slice(0, 3).includes(o.status));
@@ -261,6 +262,13 @@ export default function WaitSheet({
 
         {focus.status === 'served' && !focus.stars && <Rate order={focus} onRated={onOrder} />}
         {focus.stars > 0 && <p className="c-wait__thanks">Thank you. Your {focus.stars}-star rating has gone to the chef.</p>}
+        {focus.stars >= 4 && settings.social?.google && (
+          <a className="c-cta is-gold c-press c-review" href={settings.social.google} target="_blank" rel="noopener noreferrer">
+            <span>Would you say so on Google? It helps us a lot.</span><Icon name="star" size={18} />
+          </a>
+        )}
+
+        {!cancelled && <ClubCard club={settings.club} restaurant={settings.name} orders={orders} member={member} />}
 
         {spun?.prize && (
           <section className={'c-wait__block c-prize' + (spun.prize.win ? ' is-win' : '')}>
@@ -322,6 +330,7 @@ export default function WaitSheet({
         )}
       </div>
 
+      <SocialLinks social={settings.social} />
       <button className="c-ghost c-press" onClick={onBasket}><Icon name="bag" size={16} />&nbsp; Basket, bill and calling a server</button>
     </Sheet>
   );

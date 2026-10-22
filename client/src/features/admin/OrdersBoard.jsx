@@ -114,6 +114,11 @@ export default function OrdersBoard({ can, orders, calls, stats, settings, setEr
     try { await api.post(`/admin/tables/${moving.from}/move`, { to: Number(moving.to) }); setMoving(null); loadTables(); }
     catch (err) { setError(err.message); }
   };
+  // A club member at the table has a reward waiting: staff hand it over and it comes off their card.
+  const giveReward = async (m) => {
+    if (!(await confirm({ title: `Give ${m.name.split(' ')[0]} their reward?`, body: `${settings.club?.reward || 'The reward'}. It comes off their stamp card.`, action: 'Reward given', cancel: 'Not yet' }))) return;
+    api.post(`/admin/guests/${m.id}/redeem`).then(loadTables).catch((e) => setError(e.message));
+  };
   // How many orders are live at each table, so a second ticket from the same table says so.
   const liveAt = orders.reduce((map, o) => (['new', 'cooking', 'ready'].includes(o.status) && o.table > 0 ? map.set(o.table, (map.get(o.table) || 0) + 1) : map), new Map());
   const doneCall = (call) => api.patch(`/admin/calls/${call.id}`).catch((e) => setError(e.message));
@@ -158,6 +163,16 @@ export default function OrdersBoard({ can, orders, calls, stats, settings, setEr
                 <span className="a-opentable__who"><b>{tableName(t.table)}</b><small>{t.orders} {t.orders === 1 ? 'order' : 'orders'}{t.active ? ` · ${t.active} in the kitchen` : ' · all served'}</small>
                   {t.parties > 1 && <small className="a-opentable__warn">Includes an earlier party that was not marked paid</small>}
                 </span>
+                {t.members?.length > 0 && (
+                  <span className="a-members">
+                    {t.members.map((m) => (
+                      <span key={m.id} className={'a-member' + (m.rewardsReady ? ' has-reward' : '')}>
+                        <Icon name="heart" size={13} />{m.name.split(' ')[0]}
+                        {m.rewardsReady > 0 ? <>: reward waiting{can('settle') && <button className="a-member__give" onClick={() => giveReward(m)}>Give</button>}</> : ` · ${m.stamps} stamps`}
+                      </span>
+                    ))}
+                  </span>
+                )}
                 <strong>{money(t.total, currency)}</strong>
                 {can('settle') && (
                   <span className="a-opentable__tools">

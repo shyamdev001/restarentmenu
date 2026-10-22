@@ -60,6 +60,18 @@ export async function renewSubscription({ old, subscription }) {
   return true;
 }
 
+/** Send to one stored subscription. Returns 'sent', 'gone' (the browser dropped it) or 'failed'. */
+export async function sendTo(subscription, message, ttl = 86400) {
+  if (!subscription?.endpoint) return 'gone';
+  try {
+    await ready();
+    await webpush.sendNotification({ endpoint: subscription.endpoint, keys: subscription.keys }, JSON.stringify(message), { TTL: ttl, urgency: 'normal' });
+    return 'sent';
+  } catch (err) {
+    return err.statusCode === 404 || err.statusCode === 410 ? 'gone' : 'failed';
+  }
+}
+
 /** Send one message to every matching subscription. Never throws: push is a nicety. */
 async function send(filter, message, ttl = 600) {
   try {

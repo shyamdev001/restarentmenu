@@ -8,6 +8,7 @@ import { ensureSeed, importDiskPhotos } from './seed/seed.js';
 import { modernisePhotos } from './services/photos.js';
 import { flagDefaultPasswords, resetOwnerFromEnv } from './services/staff.js';
 import { adoptOldOrders } from './services/tables.js';
+import { startReminders } from './services/club.js';
 
 async function main() {
   await connectDb();
@@ -21,6 +22,8 @@ async function main() {
   const server = http.createServer(createApp());
   initSocket(server);
   await shareAcrossServers();
+
+  startReminders();
 
   server.listen(env.port, () => {
     console.log(`Server ready on http://localhost:${env.port}`);

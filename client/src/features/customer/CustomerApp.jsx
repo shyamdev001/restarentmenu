@@ -11,6 +11,8 @@ import MenuSheet from './MenuSheet.jsx';
 import DishSheet from './DishSheet.jsx';
 import OrderSheet from './OrderSheet.jsx';
 import BillSheet from './BillSheet.jsx';
+import Sheet from './Sheet.jsx';
+import { ClubCard, SocialLinks, useClub } from './Club.jsx';
 import TableSheet from './TableSheet.jsx';
 import WaitSheet from './WaitSheet.jsx';
 import '../../styles/customer.css';
@@ -78,6 +80,8 @@ export default function CustomerApp() {
   const [alerts, setAlerts] = useState(alertsState);
   const [pushed, setPushed] = useState(null);   // null: not tried yet; true: this phone hears news with the menu closed
   const linked = useLiveLink();
+  const [clubTick, setClubTick] = useState(0);   // look at the stamp card again (the table paid)
+  const member = useClub(clubTick);
 
   const [cart, setCart] = usePersistentState('sm.cart', {});   // { dishId: qty }
   const [opts, setOpts] = usePersistentState('sm.opts', {});   // { dishId: { spice, addons, note } }
@@ -134,8 +138,19 @@ export default function CustomerApp() {
     setSheet('wait');
     window.history.replaceState(null, '', window.location.pathname + window.location.search.replace(/[?&]order=[a-f0-9]{24}/, '').replace(/^&/, '?'));
   }, [followOrder]);
+  // Opened from a club notification (a stamp, a reward, an offer): show the card.
   useEffect(() => {
-    const onMessage = (e) => { if (e.data?.type === 'open') { setEntered(true); setSheet('wait'); } };
+    if (new URLSearchParams(window.location.search).get('club') !== 'card') return;
+    setEntered(true);
+    setSheet('club');
+    window.history.replaceState(null, '', window.location.pathname + window.location.search.replace(/[?&]club=card/, '').replace(/^&/, '?'));
+  }, []);
+  useEffect(() => {
+    const onMessage = (e) => {
+      if (e.data?.type !== 'open') return;
+      setEntered(true);
+      setSheet(String(e.data.url || '').includes('club=card') ? 'club' : 'wait');
+    };
     navigator.serviceWorker?.addEventListener('message', onMessage);
     return () => navigator.serviceWorker?.removeEventListener('message', onMessage);
   }, []);
@@ -166,6 +181,7 @@ export default function CustomerApp() {
       sound: 'good', vibrate: true, important: true, tag: 'call-' + call.type
     }),
     onCleared: () => {
+      setTimeout(() => setClubTick((n) => n + 1), 1500);
       clearOrders();
       setSheet(null);
       notify({ icon: 'check', title: 'All settled. Thank you.', body: 'We hope to see you again soon.', sound: 'good' });
@@ -336,6 +352,7 @@ export default function CustomerApp() {
     try {
       const order = await api.post('/orders', {
         table: to, code: seat.code, clientKey, expected: cartTotal,
+        ...(member.key ? { guestKey: member.key } : {}),
         items: lines.map(({ dish: d, qty, option }) => ({
           dishId: d.id, qty,
           spice: d.spice > 0 ? option.spice : '',
@@ -421,10 +438,18 @@ export default function CustomerApp() {
         cart={cart} cartCount={cartCount} cartTotal={cartTotal} sending={sending}
         onAdd={(d) => { setQty(d.id, (cart[d.id] || 0) + 1); setBump((b) => b + 1); }}
         onSend={() => sendOrder()} onBasket={() => setSheet('order')} onOrder={putOrder}
-        alerts={alerts} pushed={pushed} onAlerts={turnOnAlerts} />
+        alerts={alerts} pushed={pushed} onAlerts={turnOnAlerts} member={member} />
 
       <BillSheet open={sheet === 'bill'} onClose={() => setSheet(null)} orders={orders} tableOrders={tableBill} table={table} currency={settings.currency}
-        onAsk={() => call('bill')} onNewVisit={() => { clearOrders(); setSheet(null); }} />
+        onAsk={() => call('bill')} onNewVisit={() => { clearOrders(); setSheet(null); }}
+        club={settings.club} restaurant={settings.name} social={settings.social} member={member} />
+
+      <Sheet open={sheet === 'club'} onClose={() => setSheet(null)} title="Your" accent="card" label="Your stamp card">
+        <div className="c-body c-rail">
+          <ClubCard club={settings.club} restaurant={settings.name} orders={orders} member={member} />
+          <SocialLinks social={settings.social} />
+        </div>
+      </Sheet>
 
       <TableSheet open={sheet === 'table'} onClose={() => { setPending(null); setSheet(null); }}
         tables={settings.tables} current={table} onPick={pickTable} />

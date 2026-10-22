@@ -7,6 +7,7 @@ import { buildReport, exportCsv, ordersIn, rangeOf, todayIn, zoneOf } from '../s
 import { gameOf, saveGame } from '../services/waiting.js';
 import { ROLES, STEP_NEEDS, addStaff, canDo, changeStaff, listStaff, removeStaff } from '../services/staff.js';
 import { realtime } from '../services/socket.js';
+import * as club from '../services/club.js';
 import { push, saveSubscription } from '../services/push.js';
 import { removePhoto, savePhoto } from '../services/photos.js';
 
@@ -48,13 +49,19 @@ export const trimOrderItems = asyncHandler(async (req, res) => {
 
 /* ------------------------------- Tables and bills ------------------------------ */
 /** GET /tables/open : tables with something ordered and not yet paid. */
-export const listOpenTables = asyncHandler(async (_req, res) => res.json(await openTables()));
+export const listOpenTables = asyncHandler(async (_req, res) => {
+  const tables = await openTables();
+  // Club members at each table, so staff can greet them and hand over a reward that is waiting.
+  const members = await club.membersAt(tables.map((t) => t.table));
+  res.json(tables.map((t) => ({ ...t, members: members.get(t.table) || [] })));
+});
 
 /** POST /tables/:table/settle : the table has paid. Its guests' phones start a fresh visit. */
 export const settle = asyncHandler(async (req, res) => {
   const table = Number.parseInt(req.params.table, 10);
   if (!Number.isInteger(table) || table < 0) throw ApiError.badRequest('Unknown table.');
-  const closed = await settleTable(table, req.body.method);
+  const { closed, orders } = await settleTable(table, req.body.method);
+  club.creditOrders(orders).catch((err) => console.error('Club credit failed:', err.message));
   realtime.tableSettled(table);
   push.forgetTable(table);
   res.json({ ok: true, closed });
@@ -228,7 +235,7 @@ export const uploadDishImage = asyncHandler(async (req, res) => {
 /* --------------------------------- Settings --------------------------------- */
 export const readSettings = asyncHandler(async (_req, res) => {
   const settings = await getSettings();
-  res.json({ ...settings.toJSON(), game: gameOf(settings) });
+  res.json({ ...settings.toJSON(), game: gameOf(settings), club: club.clubOf(settings), social: settings.social || {} });
 });
 
 /** PUT /settings/game : switch the wheel on or off and set its prizes. Guests see the change at once. */
@@ -253,4 +260,36 @@ export const tableQr = asyncHandler(async (req, res) => {
   const url = `${base}/?table=${table}&k=${await tableCode(table)}`;
   const svg = await QRCode.toString(url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#170F0A', light: '#FFFFFF' } });
   res.type('image/svg+xml').set('X-Menu-Url', url).send(svg);
+});
+
+/* --------------------------------- Guest club --------------------------------- */
+export const guestList = asyncHandler(async (req, res) => res.json(await club.listGuests(req.query)));
+
+export const guestRedeem = asyncHandler(async (req, res) => {
+  const guest = await club.redeem(req.params.id);
+  realtime.tablesChanged();
+  res.json(guest);
+});
+
+export const guestRemove = asyncHandler(async (req, res) => { await club.remove(req.params.id); res.json({ ok: true }); });
+
+/** POST /guests/offer : send an offer as a notification to the chosen guests. */
+export const guestOffer = asyncHandler(async (req, res) => res.json(await club.sendOffer(req.body)));
+
+/** GET /guests/export : the guest list as a spreadsheet. */
+export const guestCsv = asyncHandler(async (req, res) => {
+  const { guests } = await club.listGuests(req.query);
+  const cell = (v) => { let t = String(v ?? ''); if (/^[=+\-@]/.test(t)) t = "'" + t; return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+  const rows = [['Name', 'Phone', 'Birthday', 'Visits', 'Last visit', 'Spent', 'Stamps', 'Rewards waiting', 'Favourite', 'Joined'],
+    ...guests.map((g) => [g.name, g.phone.replace(/^(91)(\d{5})(\d{5})$/, '$1 $2 $3'), g.birthday ? `${g.birthday.day}/${g.birthday.month}` : '', g.visits,
+      g.lastVisitAt ? new Date(g.lastVisitAt).toISOString().slice(0, 10) : '', g.spent, g.stamps, g.rewardsReady, g.favourite,
+      new Date(g.joinedAt).toISOString().slice(0, 10)])];
+  res.type('text/csv').set('Content-Disposition', 'attachment; filename="guests.csv"').send(rows.map((r) => r.map(cell).join(',')).join('\r\n') + '\r\n');
+});
+
+/** PUT /settings/club : social links, the guest club, the stamp card and reminders. */
+export const updateClub = asyncHandler(async (req, res) => {
+  const settings = await Setting.findOneAndUpdate({ key: 'main' }, { social: req.body.social, club: req.body.club }, { new: true, upsert: true, runValidators: true });
+  realtime.menuChanged();
+  res.json({ social: settings.social, club: club.clubOf(settings) });
 });

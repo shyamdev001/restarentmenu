@@ -19,12 +19,13 @@ import { ApiError } from '../utils/ApiError.js';
  *   menu     add, edit and delete dishes and categories
  *   reports  sales figures, reports and history
  *   qr       print the table QR codes
+ *   guests   the guest club: the list, offers and reminders
  *   settings restaurant settings and the wheel
  *   staff    add, change and remove staff accounts
  */
 export const ROLES = {
-  owner: { label: 'Owner', can: ['orders', 'cook', 'serve', 'cancel', 'enter', 'calls', 'settle', 'soldout', 'menu', 'reports', 'qr', 'settings', 'staff'] },
-  manager: { label: 'Manager', can: ['orders', 'cook', 'serve', 'cancel', 'enter', 'calls', 'settle', 'soldout', 'menu', 'reports', 'qr'] },
+  owner: { label: 'Owner', can: ['orders', 'cook', 'serve', 'cancel', 'enter', 'calls', 'settle', 'soldout', 'menu', 'reports', 'qr', 'guests', 'settings', 'staff'] },
+  manager: { label: 'Manager', can: ['orders', 'cook', 'serve', 'cancel', 'enter', 'calls', 'settle', 'soldout', 'menu', 'reports', 'qr', 'guests'] },
   waiter: { label: 'Waiter', can: ['orders', 'serve', 'enter', 'calls', 'settle'] },
   kitchen: { label: 'Kitchen', can: ['orders', 'cook', 'soldout'] }
 };

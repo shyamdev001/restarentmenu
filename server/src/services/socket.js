@@ -81,5 +81,7 @@ export const realtime = {
     io?.to('admin').emit('call:update', call);
     if (call.status === 'done') io?.to('table:' + call.table).emit('call:done', { table: call.table, type: call.type });
   },
-  menuChanged: () => io?.emit('menu:update')
+  menuChanged: () => io?.emit('menu:update'),
+  /** Something on the open-tables list changed without an order moving (e.g. a reward was used). */
+  tablesChanged: () => io?.to('admin').emit('tables:update')
 };

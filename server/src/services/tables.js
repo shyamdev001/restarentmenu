@@ -124,9 +124,11 @@ export async function settleTable(table, method) {
   if (active) throw ApiError.conflict(`${table === 0 ? 'The counter' : 'Table ' + table} still has an order in the kitchen.`);
   // Cancelled orders were never paid for, so they only close; the rest record how the bill was paid.
   await Order.updateMany({ table, settled: false, status: 'cancelled' }, { settled: true });
-  const result = await Order.updateMany({ table, settled: false }, { settled: true, paidBy: method, paidAt: new Date() });
+  const paidAt = new Date();
+  const paying = await Order.find({ table, settled: false }, '_id');
+  const result = await Order.updateMany({ _id: { $in: paying.map((o) => o._id) }, settled: false }, { settled: true, paidBy: method, paidAt });
   await endVisit(table);
-  return result.modifiedCount;
+  return { closed: result.modifiedCount, orders: await Order.find({ _id: { $in: paying.map((o) => o._id) }, paidAt }) };
 }
 
 /**

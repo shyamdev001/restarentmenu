@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { Dish, Order, Setting, getSettings } from '../models/index.js';
+import { Dish, Guest, Order, Setting, getSettings } from '../models/index.js';
 import { ApiError } from '../utils/ApiError.js';
 import { assertTable, visitFor } from './tables.js';
 
@@ -65,7 +65,7 @@ export async function moveOrder(id, next, by = '') {
  *
  * Returns { order, created }.
  */
-export async function createOrder({ table, code, items, clientKey, expected }, { staff = false, by = '' } = {}) {
+export async function createOrder({ table, code, items, clientKey, expected, guestKey }, { staff = false, by = '' } = {}) {
   const settings = await getSettings();
   if (staff) {
     if (table > settings.tables) throw ApiError.badRequest(`Table ${table} does not exist.`);
@@ -80,6 +80,8 @@ export async function createOrder({ table, code, items, clientKey, expected }, {
 
   // Everyone at the table shares one visit: one bill, one spin of the wheel.
   const visit = await visitFor(table);
+  // A club member's phone: the order counts towards their visits and stamps.
+  const member = !staff && guestKey ? await Guest.findOne({ keys: guestKey }, '_id') : null;
   // Guards against a flood of orders from a photo of a QR code: a real table rarely has this many waiting to be started.
   if (!staff) {
     const waiting = await Order.countDocuments({ table, visit, source: 'guest', status: 'new' });
@@ -122,6 +124,7 @@ export async function createOrder({ table, code, items, clientKey, expected }, {
       publicId: crypto.randomBytes(12).toString('hex'),
       number: counter.orderCounter,
       table, visit, items: lines, subtotal,
+      ...(member ? { guest: member._id } : {}),
       taxPercent: settings.taxPercent, tax,
       total: Math.round((subtotal + tax) * 100) / 100,
       etaMin,

@@ -124,16 +124,27 @@ async function post(url, body) {
  *   enablePush('guest', { orders, table })     this guest's orders and table
  * Resolves true when the subscription is saved.
  */
-export async function enablePush(role, scope = {}) {
+/** This browser's push subscription, made if needed, without telling the server what it is for. Null if not possible. */
+export async function pushSubscription() {
   try {
-    if (alertsState() !== 'granted' || !('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+    if (alertsState() !== 'granted' || !('serviceWorker' in navigator) || !('PushManager' in window)) return null;
     const worker = await navigator.serviceWorker.ready;
     let subscription = await worker.pushManager.getSubscription();
     if (!subscription) {
       const { publicKey } = await fetch('/api/push/key').then((r) => r.json());
       subscription = await worker.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toBytes(publicKey) });
     }
-    const body = { subscription: subscription.toJSON(), ...(role === 'guest' ? scope : {}) };
+    return subscription.toJSON();
+  } catch {
+    return null;
+  }
+}
+
+export async function enablePush(role, scope = {}) {
+  try {
+    const subscription = await pushSubscription();
+    if (!subscription) return false;
+    const body = { subscription, ...(role === 'guest' ? scope : {}) };
     await post(role === 'admin' ? '/admin/push/subscribe' : '/push/subscribe', body);
     pushOn = true;
     return true;
